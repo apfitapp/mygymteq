@@ -4,14 +4,25 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "turbo run dev --parallel",
-    "build": "turbo run build",
-    "lint": "turbo run lint",
-    "test": "turbo run test"
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "deploy": "wrangler pages deploy dist",
+    "test": "vitest run",
+    "db:migrate:local": "wrangler d1 migrations apply gym-d1-prod --local",
+    "db:migrate:remote": "wrangler d1 migrations apply gym-d1-prod --remote",
+    "typecheck": "astro check"
+  },
+  "dependencies": {
+    "@astrojs/check": "^0.9.4",
+    "@astrojs/cloudflare": "^12.2.3",
+    "astro": "^5.4.1",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
-    "turbo": "^2.4.0",
-    "typescript": "^5.7.3"
-  },
-  "packageManager": "pnpm@10.26.2"
+    "@cloudflare/workers-types": "^4.20250214.0",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.7",
+    "wrangler": "^3.114.17"
+  }
 }

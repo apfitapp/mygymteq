@@ -1,0 +1,344 @@
+---
+import AppShell from '@/components/layout/AppShell.astro';
+import Badge from '@/components/ui/Badge.astro';
+import { PaymentRepository } from '@/server/repositories/payment.repository';
+import { NotificationService } from '@/lib/notifications';
+import { actions } from 'astro:actions';
+
+const db = Astro.locals.runtime?.env?.DB;
+const gym = Astro.locals.gym;
+
+if (!db || !gym) {
+  return Astro.redirect('/login');
+}
+
+const paymentRepo = new PaymentRepository(db, gym.id);
+const [payments, summary] = await Promise.all([
+  paymentRepo.list({ limit: 100 }),
+  paymentRepo.getSummaryMetrics(),
+]);
+
+const notif = new NotificationService(gym.name);
+
+// Handle dues payment action result
+const result = Astro.getActionResult(actions.payments.recordDuePayment);
+const errorMessage = result?.error ? result.error.message : null;
+const successData = result && !result.error ? result.data : null;
+---
+
+<AppShell title="Payments & Dues" activeNav="payments">
+  <!-- Summary Stat Badges -->
+  <div class="summary-cards">
+    <div class="sum-card">
+      <span class="label">Monthly Collections</span>
+      <span class="value font-mono">₹{(summary.monthlyRevenue / 100).toLocaleString('en-IN')}</span>
+    </div>
+    <div class="sum-card">
+      <span class="label">Today's Collections</span>
+      <span class="value font-mono">₹{(summary.todayRevenue / 100).toLocaleString('en-IN')}</span>
+    </div>
+    <div class="sum-card err">
+      <span class="label">Total Pending Dues</span>
+      <span class="value font-mono">₹{(summary.pendingDues / 100).toLocaleString('en-IN')}</span>
+    </div>
+  </div>
+
+  {errorMessage && (
+    <div class="error-banner">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+      <span>{errorMessage}</span>
+    </div>
+  )}
+
+  {successData && (
+    <div class="success-banner">
+      <div>
+        <strong>Payment Recorded!</strong> Receipt: <span class="font-mono">{successData.receiptNumber}</span>
+      </div>
+      {successData.whatsappUrl && (
+        <a href={successData.whatsappUrl} target="_blank" rel="noopener noreferrer" class="whatsapp-btn">
+          Share WhatsApp Receipt
+        </a>
+      )}
+    </div>
+  )}
+
+  <!-- Payments Table Card -->
+  <div class="table-card">
+    <div class="card-header">
+      <h2>Payment Ledger & Receipts</h2>
+      <span class="count-pill">{payments.length} Records</span>
+    </div>
+
+    {payments.length === 0 ? (
+      <div class="empty-state">
+        <p>No payments recorded yet.</p>
+      </div>
+    ) : (
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Receipt No</th>
+              <th>Date</th>
+              <th>Member</th>
+              <th>Payment Mode</th>
+              <th>Reference / Notes</th>
+              <th>Amount</th>
+              <th>Status</th>
+              <th>Receipt</th>
+            </tr>
+          </thead>
+          <tbody>
+            {payments.map((p: any) => {
+              const receiptWhatsappUrl = notif.generateWhatsAppUrl({
+                recipientPhone: p.phone,
+                recipientName: `${p.first_name} ${p.last_name || ''}`.trim(),
+                type: 'PAYMENT_RECEIPT',
+                params: {
+                  amount: p.amount / 100,
+                  paymentMode: p.payment_mode,
+                  receiptNumber: p.receipt_number,
+                },
+              });
+
+              return (
+                <tr>
+                  <td>
+                    <span class="receipt-code font-mono">{p.receipt_number}</span>
+                  </td>
+                  <td>
+                    <span class="font-mono text-muted">{new Date(p.payment_date * 1000).toLocaleDateString('en-IN')}</span>
+                  </td>
+                  <td>
+                    <div class="member-cell">
+                      <strong class="name">{p.first_name} {p.last_name || ''}</strong>
+                      <span class="code font-mono">{p.member_code}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="mode-pill font-mono">{p.payment_mode}</span>
+                  </td>
+                  <td>
+                    <span class="ref-note">{p.reference_id || p.notes || '—'}</span>
+                  </td>
+                  <td>
+                    <strong class="amount font-mono">₹{(p.amount / 100).toLocaleString('en-IN')}</strong>
+                  </td>
+                  <td>
+                    <Badge variant={p.status === 'COMPLETED' ? 'ok' : 'muted'} size="sm">
+                      {p.status}
+                    </Badge>
+                  </td>
+                  <td>
+                    <a href={receiptWhatsappUrl} target="_blank" rel="noopener noreferrer" class="share-btn">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.699c.99.54 1.777.818 2.796.819 3.183 0 5.77-2.587 5.77-5.771 0-3.181-2.587-5.768-5.77-5.768zm0 10.373c-.927 0-1.637-.253-2.399-.705l-.171-.102-1.782.467.476-1.737-.113-.179c-.504-.803-.842-1.464-.842-2.351 0-2.537 2.064-4.601 4.603-4.601 2.538 0 4.604 2.064 4.604 4.603 0 2.539-2.066 4.605-4.607 4.605z"/></svg>
+                      <span>Share</span>
+                    </a>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+</AppShell>
+
+<style>
+  .summary-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-md);
+    margin-bottom: var(--space-lg);
+  }
+
+  .sum-card {
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: var(--space-md);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .sum-card.err .value {
+    color: var(--err);
+  }
+
+  .sum-card .label {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  .sum-card .value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .error-banner {
+    background-color: var(--err-soft);
+    border: 1px solid var(--err);
+    color: var(--err);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-md);
+  }
+
+  .success-banner {
+    background-color: var(--ok-soft);
+    border: 1px solid var(--ok);
+    color: var(--ok);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-md);
+  }
+
+  .whatsapp-btn {
+    background-color: #25D366;
+    color: #05281A;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .table-card {
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .card-header h2 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .count-pill {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--muted);
+    background: var(--surface-2);
+    padding: 2px 8px;
+    border-radius: 99px;
+  }
+
+  .table-responsive {
+    overflow-x: auto;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .data-table th {
+    text-align: left;
+    padding: 10px 14px;
+    background-color: var(--surface-2);
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .data-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+
+  .receipt-code {
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .text-muted {
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .member-cell {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .member-cell .name {
+    color: var(--ink);
+  }
+
+  .member-cell .code {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .mode-pill {
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--surface-2);
+    border: 1px solid var(--line-strong);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--ink-2);
+  }
+
+  .ref-note {
+    font-size: 12px;
+    color: var(--ink-2);
+  }
+
+  .amount {
+    color: var(--ok);
+    font-size: 14px;
+  }
+
+  .share-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--surface-2);
+    border: 1px solid var(--line-strong);
+    color: var(--ink-2);
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .share-btn:hover {
+    border-color: #25D366;
+    color: #05281A;
+    background-color: #25D366;
+  }
+
+  .empty-state {
+    padding: var(--space-3xl);
+    text-align: center;
+    color: var(--muted);
+  }
+</style>

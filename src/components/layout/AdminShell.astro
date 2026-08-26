@@ -1,0 +1,284 @@
+---
+import '@/styles/tokens.css';
+
+interface Props {
+  title: string;
+  activeNav?: 'gyms' | 'plans' | 'subscriptions' | 'settings';
+}
+
+const { title, activeNav = 'gyms' } = Astro.props;
+const user = Astro.locals.user;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{title} — Platform Super Admin</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body>
+    <div class="admin-layout">
+      <!-- Admin Sidebar -->
+      <aside class="sidebar">
+        <div class="sidebar-header">
+          <div class="brand-badge admin-badge">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v20"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+          </div>
+          <div class="brand-text">
+            <span class="platform-name">Gym SaaS Platform</span>
+            <span class="admin-pill">Super Admin</span>
+          </div>
+        </div>
+
+        <nav class="nav-links">
+          <a href="/admin" class:list={['nav-item', { active: activeNav === 'gyms' }]}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            <span>Gyms & Tenants</span>
+          </a>
+
+          <a href="/admin/plans" class:list={['nav-item', { active: activeNav === 'plans' }]}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+            <span>SaaS Commercial Plans</span>
+          </a>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="user-pill">
+            <div class="avatar">SA</div>
+            <div class="user-info">
+              <span class="user-name">{user?.name}</span>
+              <span class="user-role">Platform Admin</span>
+            </div>
+          </div>
+          <form method="POST" action="/logout" class="logout-form">
+            <button type="submit" class="logout-btn" title="Sign out">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+            </button>
+          </form>
+        </div>
+      </aside>
+
+      <!-- Main Admin Wrapper -->
+      <div class="main-wrapper">
+        <header class="topbar">
+          <div class="topbar-title">
+            <h1>{title}</h1>
+          </div>
+          <div class="topbar-actions">
+            <button class="theme-toggle" id="theme-btn" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+            </button>
+          </div>
+        </header>
+
+        <main class="page-content">
+          <slot />
+        </main>
+      </div>
+    </div>
+
+    <script is:inline>
+      const btn = document.getElementById('theme-btn');
+      if (btn) {
+        btn.addEventListener('click', () => {
+          document.body.classList.toggle('dark-theme');
+          const isDark = document.body.classList.contains('dark-theme');
+          localStorage.setItem('gym_theme', isDark ? 'dark' : 'light');
+        });
+        if (localStorage.getItem('gym_theme') === 'dark') {
+          document.body.classList.add('dark-theme');
+        }
+      }
+    </script>
+  </body>
+</html>
+
+<style>
+  .admin-layout {
+    display: flex;
+    min-height: 100vh;
+  }
+
+  .sidebar {
+    width: 260px;
+    background-color: var(--surface);
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    padding: var(--space-md);
+  }
+
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding-bottom: var(--space-md);
+    border-bottom: 1px solid var(--line);
+    margin-bottom: var(--space-md);
+  }
+
+  .admin-badge {
+    background-color: var(--ink);
+    color: var(--bg);
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .brand-text {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .platform-name {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--ink);
+  }
+
+  .admin-pill {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--err);
+    background: var(--err-soft);
+    padding: 1px 6px;
+    border-radius: 99px;
+    width: fit-content;
+    margin-top: 2px;
+  }
+
+  .nav-links {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: 10px 12px;
+    border-radius: var(--radius-sm);
+    color: var(--ink-2);
+    font-weight: 500;
+    font-size: 14px;
+  }
+
+  .nav-item:hover {
+    background-color: var(--surface-2);
+    color: var(--ink);
+  }
+
+  .nav-item.active {
+    background-color: var(--ink);
+    color: var(--bg);
+    font-weight: 600;
+  }
+
+  .sidebar-footer {
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .user-pill {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+  }
+
+  .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: var(--surface-2);
+    color: var(--ink);
+    font-weight: 700;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line-strong);
+  }
+
+  .user-info {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .user-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .user-role {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .logout-btn {
+    background: transparent;
+    border: 1px solid var(--line);
+    padding: 6px;
+    border-radius: var(--radius-sm);
+    color: var(--muted);
+    cursor: pointer;
+  }
+
+  .main-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .topbar {
+    height: var(--header-h);
+    background-color: var(--surface);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 var(--space-xl);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .topbar-title h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .theme-toggle {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    padding: 8px;
+    border-radius: var(--radius-sm);
+    color: var(--ink-2);
+    cursor: pointer;
+  }
+
+  .page-content {
+    padding: var(--space-xl);
+    flex: 1;
+    max-width: var(--maxw);
+    width: 100%;
+    margin: 0 auto;
+  }
+</style>

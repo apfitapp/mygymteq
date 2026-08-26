@@ -1,0 +1,364 @@
+---
+import AppShell from '@/components/layout/AppShell.astro';
+import { PlanRepository } from '@/server/repositories/plan.repository';
+import { actions } from 'astro:actions';
+
+const db = Astro.locals.runtime?.env?.DB;
+const gym = Astro.locals.gym;
+
+if (!db || !gym) {
+  return Astro.redirect('/login');
+}
+
+const planRepo = new PlanRepository(db, gym.id);
+const plans = await planRepo.listActive();
+
+const result = Astro.getActionResult(actions.members.create);
+const errorMessage = result?.error ? result.error.message : null;
+const successData = result && !result.error ? result.data : null;
+---
+
+<AppShell title="Register New Member" activeNav="members">
+  <div class="form-wrapper">
+    <div class="form-header">
+      <a href="/members" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+        <span>Back to Members</span>
+      </a>
+      <h2>New Member Enrollment</h2>
+      <p class="subtitle">Enter member details, assign a membership plan, and collect initial fee</p>
+    </div>
+
+    {errorMessage && (
+      <div class="error-banner">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+        <span>{errorMessage}</span>
+      </div>
+    )}
+
+    {successData ? (
+      <div class="success-card">
+        <div class="success-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+        <h3>Member Enrolled Successfully!</h3>
+        <p>Member ID: <strong class="font-mono">{successData.memberCode}</strong></p>
+        {successData.receiptNumber && (
+          <p class="receipt-note">Initial Payment Receipt: <strong class="font-mono">{successData.receiptNumber}</strong></p>
+        )}
+
+        <div class="success-actions">
+          {successData.whatsappUrl && (
+            <a href={successData.whatsappUrl} target="_blank" rel="noopener noreferrer" class="whatsapp-btn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.699c.99.54 1.777.818 2.796.819 3.183 0 5.77-2.587 5.77-5.771 0-3.181-2.587-5.768-5.77-5.768zm0 10.373c-.927 0-1.637-.253-2.399-.705l-.171-.102-1.782.467.476-1.737-.113-.179c-.504-.803-.842-1.464-.842-2.351 0-2.537 2.064-4.601 4.603-4.601 2.538 0 4.604 2.064 4.604 4.603 0 2.539-2.066 4.605-4.607 4.605z"/></svg>
+              <span>Send WhatsApp Welcome Message</span>
+            </a>
+          )}
+          <a href="/members" class="secondary-btn">Go to Member Directory</a>
+          <a href="/members/new" class="outline-btn">Enroll Another Member</a>
+        </div>
+      </div>
+    ) : (
+      <form method="POST" action={actions.members.create} class="member-form">
+        <!-- 1. Personal Details -->
+        <fieldset class="form-section">
+          <legend>1. Personal Information</legend>
+          <div class="grid-2">
+            <div class="field">
+              <label for="firstName">First Name *</label>
+              <input type="text" id="firstName" name="firstName" required placeholder="e.g. Rahul" />
+            </div>
+            <div class="field">
+              <label for="lastName">Last Name</label>
+              <input type="text" id="lastName" name="lastName" placeholder="e.g. Sharma" />
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="phone">Mobile Phone (10 Digits) *</label>
+              <input type="tel" id="phone" name="phone" required placeholder="e.g. 9876543210" pattern="[6-9][0-9]{9}" />
+            </div>
+            <div class="field">
+              <label for="email">Email Address</label>
+              <input type="email" id="email" name="email" placeholder="e.g. rahul@example.com" />
+            </div>
+          </div>
+
+          <div class="grid-3">
+            <div class="field">
+              <label for="gender">Gender</label>
+              <select id="gender" name="gender">
+                <option value="MALE">Male</option>
+                <option value="FEMALE">Female</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="dateOfBirth">Date of Birth</label>
+              <input type="date" id="dateOfBirth" name="dateOfBirth" />
+            </div>
+            <div class="field">
+              <label for="joinedDate">Joining Date</label>
+              <input type="date" id="joinedDate" name="joinedDate" value={new Date().toISOString().split('T')[0]} />
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- 2. Membership Plan -->
+        <fieldset class="form-section">
+          <legend>2. Membership Plan & Pricing</legend>
+          <div class="field">
+            <label for="planId">Select Membership Plan *</label>
+            <select id="planId" name="planId" required>
+              {plans.map((p) => (
+                <option value={p.id} data-price={p.price / 100} data-adm={p.admission_fee / 100}>
+                  {p.name} ({p.duration_months} Months) — ₹{(p.price / 100).toLocaleString('en-IN')} {p.admission_fee > 0 ? `+ ₹${p.admission_fee / 100} Adm Fee` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="discountAmount">Discount (₹)</label>
+              <input type="number" id="discountAmount" name="discountAmount" min="0" value="0" />
+            </div>
+            <div class="field">
+              <label for="initialPaymentAmount">Initial Payment Collected (₹) *</label>
+              <input type="number" id="initialPaymentAmount" name="initialPaymentAmount" min="0" required placeholder="0" />
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <div class="field">
+              <label for="paymentMode">Payment Mode</label>
+              <select id="paymentMode" name="paymentMode">
+                <option value="UPI">UPI / QR Code</option>
+                <option value="CASH">Cash</option>
+                <option value="CARD">Debit / Credit Card</option>
+                <option value="NETBANKING">Net Banking</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="referenceId">Reference ID / UPI Note (Optional)</label>
+              <input type="text" id="referenceId" name="referenceId" placeholder="e.g. UPI/2026/XXXX" />
+            </div>
+          </div>
+        </fieldset>
+
+        <div class="form-actions">
+          <button type="submit" class="submit-btn">Complete Registration</button>
+        </div>
+      </form>
+    )}
+  </div>
+</AppShell>
+
+<style>
+  .form-wrapper {
+    max-width: 680px;
+    margin: 0 auto;
+  }
+
+  .form-header {
+    margin-bottom: var(--space-lg);
+  }
+
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 500;
+    margin-bottom: var(--space-xs);
+  }
+
+  .form-header h2 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .error-banner {
+    background-color: var(--err-soft);
+    border: 1px solid var(--err);
+    color: var(--err);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-md);
+  }
+
+  .member-form {
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    padding: var(--space-xl);
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-lg);
+  }
+
+  .form-section {
+    border: none;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .form-section legend {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 6px;
+    width: 100%;
+    margin-bottom: var(--space-xs);
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-md);
+  }
+
+  .grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: var(--space-md);
+  }
+
+  @media (max-width: 600px) {
+    .grid-2, .grid-3 {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .field label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink-2);
+  }
+
+  .field input, .field select {
+    padding: 9px 12px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    background-color: var(--surface-2);
+    color: var(--ink);
+    font-size: 14px;
+  }
+
+  .field input:focus, .field select:focus {
+    outline: none;
+    border-color: var(--accent-strong);
+    background-color: var(--surface);
+  }
+
+  .submit-btn {
+    background-color: var(--accent);
+    color: var(--accent-on);
+    border: none;
+    padding: 12px 24px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    width: 100%;
+  }
+
+  .submit-btn:hover {
+    background-color: var(--accent-strong);
+  }
+
+  .success-card {
+    background-color: var(--surface);
+    border: 1px solid var(--ok);
+    border-radius: var(--radius-md);
+    padding: var(--space-xl);
+    text-align: center;
+    box-shadow: var(--shadow-md);
+  }
+
+  .success-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background-color: var(--ok-soft);
+    color: var(--ok);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: var(--space-sm);
+  }
+
+  .success-card h3 {
+    font-size: 20px;
+    color: var(--ink);
+    margin-bottom: var(--space-xs);
+  }
+
+  .receipt-note {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .success-actions {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    margin-top: var(--space-lg);
+    max-width: 320px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .whatsapp-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background-color: #25D366;
+    color: #05281A;
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  .secondary-btn {
+    background-color: var(--surface-2);
+    border: 1px solid var(--line-strong);
+    color: var(--ink);
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .outline-btn {
+    color: var(--accent-strong);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px;
+  }
+</style>

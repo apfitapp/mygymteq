@@ -1,0 +1,282 @@
+---
+import '@/styles/tokens.css';
+import { actions } from 'astro:actions';
+
+const result = Astro.getActionResult(actions.auth.login);
+if (result && !result.error && result.data?.success) {
+  return Astro.redirect(result.data.redirectUrl || '/dashboard');
+}
+
+const errorMessage = result?.error ? (result.error.message || 'Invalid email or password') : null;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign In — Gym SaaS</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body class="login-body">
+    <div class="login-container">
+      <div class="login-card">
+        <!-- Brand Header -->
+        <div class="brand-header">
+          <div class="brand-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m6.5 6.5 11 11"/>
+              <path d="m21 21-1-1"/>
+              <path d="m3 3 1 1"/>
+              <path d="m18 22 4-4"/>
+              <path d="m2 6 4-4"/>
+              <path d="m3 10 7-7"/>
+              <path d="m14 21 7-7"/>
+            </svg>
+          </div>
+          <h1>MyGymTeq</h1>
+          <p class="subtitle">Modern Management SaaS for Indian Gyms</p>
+        </div>
+
+        {errorMessage && (
+          <div class="error-banner">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
+        <!-- Login Form -->
+        <form method="POST" action={actions.auth.login} class="login-form">
+          <div class="form-group">
+            <label for="email">Email Address</label>
+            <input 
+              type="email" 
+              id="email" 
+              name="email" 
+              required 
+              placeholder="e.g. admin@ironhouse.in"
+              autocomplete="email"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input 
+              type="password" 
+              id="password" 
+              name="password" 
+              required 
+              placeholder="••••••••" 
+              autocomplete="current-password"
+            />
+          </div>
+
+          <button type="submit" class="submit-btn">
+            Sign In to Gym
+          </button>
+        </form>
+
+        <!-- Quick Demo Switcher -->
+        <div class="demo-section">
+          <p class="demo-title">Quick Demo Logins:</p>
+          <div class="demo-grid">
+            <button type="button" class="demo-pill" data-email="admin@ironhouse.in" data-pass="admin123">
+              <strong>Owner</strong>
+              <span>Iron House Gym</span>
+            </button>
+            <button type="button" class="demo-pill" data-email="trainer@ironhouse.in" data-pass="trainer123">
+              <strong>Trainer</strong>
+              <span>Staff Desk</span>
+            </button>
+            <button type="button" class="demo-pill" data-email="superadmin@mygymteq.com" data-pass="admin123">
+              <strong>Super Admin</strong>
+              <span>Platform Portal</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script is:inline>
+      document.querySelectorAll('.demo-pill').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const emailInput = document.getElementById('email');
+          const passInput = document.getElementById('password');
+          if (emailInput && passInput) {
+            emailInput.value = btn.getAttribute('data-email') || '';
+            passInput.value = btn.getAttribute('data-pass') || '';
+          }
+        });
+      });
+    </script>
+  </body>
+</html>
+
+<style>
+  .login-body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    background-color: var(--bg);
+    padding: var(--space-md);
+  }
+
+  .login-container {
+    width: 100%;
+    max-width: 440px;
+  }
+
+  .login-card {
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    padding: var(--space-xl);
+    box-shadow: var(--shadow-md);
+  }
+
+  .brand-header {
+    text-align: center;
+    margin-bottom: var(--space-lg);
+  }
+
+  .brand-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: var(--radius-md);
+    background-color: var(--accent);
+    color: var(--accent-on);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: var(--space-xs);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .brand-header h1 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .error-banner {
+    background-color: var(--err-soft);
+    border: 1px solid var(--err);
+    color: var(--err);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-md);
+  }
+
+  .login-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-2);
+  }
+
+  .form-group input {
+    padding: 10px 14px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    background-color: var(--surface-2);
+    color: var(--ink);
+    font-size: 14px;
+    transition: border-color var(--dur) var(--ease);
+  }
+
+  .form-group input:focus {
+    outline: none;
+    border-color: var(--accent-strong);
+    background-color: var(--surface);
+  }
+
+  .submit-btn {
+    background-color: var(--accent);
+    color: var(--accent-on);
+    border: none;
+    padding: 12px;
+    border-radius: var(--radius-sm);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: var(--space-xs);
+    transition: background-color var(--dur) var(--ease);
+  }
+
+  .submit-btn:hover {
+    background-color: var(--accent-strong);
+  }
+
+  .demo-section {
+    margin-top: var(--space-lg);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--line);
+  }
+
+  .demo-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    font-weight: 600;
+    margin-bottom: var(--space-xs);
+  }
+
+  .demo-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-2xs);
+  }
+
+  .demo-pill {
+    background-color: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    padding: 6px 8px;
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    transition: all var(--dur) var(--ease);
+  }
+
+  .demo-pill:hover {
+    border-color: var(--accent-strong);
+    background-color: var(--accent-soft);
+  }
+
+  .demo-pill strong {
+    font-size: 11px;
+    color: var(--ink);
+  }
+
+  .demo-pill span {
+    font-size: 10px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+</style>

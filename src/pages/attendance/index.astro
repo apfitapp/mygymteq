@@ -1,0 +1,415 @@
+---
+import AppShell from '@/components/layout/AppShell.astro';
+import Badge from '@/components/ui/Badge.astro';
+import { AttendanceRepository } from '@/server/repositories/attendance.repository';
+import { actions } from 'astro:actions';
+
+const db = Astro.locals.runtime?.env?.DB;
+const gym = Astro.locals.gym;
+
+if (!db || !gym) {
+  return Astro.redirect('/login');
+}
+
+const attendanceRepo = new AttendanceRepository(db, gym.id);
+const todayLogs = await attendanceRepo.listToday();
+
+const result = Astro.getActionResult(actions.attendance.checkIn);
+const errorMessage = result?.error ? result.error.message : null;
+const checkInData = result && !result.error ? result.data : null;
+---
+
+<AppShell title="Attendance Desk" activeNav="attendance">
+  <div class="attendance-grid">
+    <!-- Left Column: Fast Check-In Kiosk -->
+    <div class="kiosk-card">
+      <div class="kiosk-header">
+        <div class="kiosk-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>
+        </div>
+        <div>
+          <h2>Rapid Member Check-In</h2>
+          <p class="subtitle">Enter Mobile Number or Member ID (&lt;3 taps)</p>
+        </div>
+      </div>
+
+      {errorMessage && (
+        <div class="error-banner">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+          <span>{errorMessage}</span>
+        </div>
+      )}
+
+      {checkInData && (
+        <div class="success-banner">
+          <div class="success-header">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            <div>
+              <h3>Welcome, {checkInData.memberName}!</h3>
+              <p class="font-mono">{checkInData.memberCode} • Checked in at {checkInData.checkInTime}</p>
+            </div>
+          </div>
+          {checkInData.alreadyCheckedIn && (
+            <span class="warning-tag">Already checked in today</span>
+          )}
+        </div>
+      )}
+
+      <!-- Fast Form -->
+      <form method="POST" action={actions.attendance.checkIn} class="kiosk-form">
+        <div class="input-wrapper">
+          <label for="identifier">Member Mobile Number or ID</label>
+          <input 
+            type="text" 
+            id="identifier" 
+            name="identifier" 
+            required 
+            autofocus 
+            placeholder="e.g. 9876543210 or MEM-1001" 
+            class="kiosk-input font-mono"
+            autocomplete="off"
+          />
+        </div>
+
+        <button type="submit" class="checkin-submit-btn">
+          <span>Check In Member</span>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </form>
+
+      <!-- Quick Test Fill Buttons -->
+      <div class="quick-fill-box">
+        <p class="qf-title">Quick Test Member IDs:</p>
+        <div class="qf-grid">
+          <button type="button" class="qf-btn" data-id="9876543210">9876543210 (Rahul)</button>
+          <button type="button" class="qf-btn" data-id="9876543211">9876543211 (Sneha)</button>
+          <button type="button" class="qf-btn" data-id="MEM-1004">MEM-1004 (Priya)</button>
+          <button type="button" class="qf-btn" data-id="MEM-1005">MEM-1005 (Rohan)</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Today's Live Attendance Feed -->
+    <div class="feed-card">
+      <div class="feed-header">
+        <div>
+          <h2>Today's Live Check-Ins</h2>
+          <p class="subtitle">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}</p>
+        </div>
+        <span class="count-pill">{todayLogs.length} Checked In</span>
+      </div>
+
+      {todayLogs.length === 0 ? (
+        <div class="empty-state">
+          <p>No check-ins logged yet today.</p>
+        </div>
+      ) : (
+        <div class="logs-list">
+          {todayLogs.map((log: any) => {
+            const timeStr = new Date(log.check_in_time * 1000).toLocaleTimeString('en-IN', {
+              hour: '2-digit',
+              minute: '2-digit',
+            });
+
+            return (
+              <div class="log-item">
+                <div class="log-left">
+                  <div class="avatar-sm">
+                    {log.first_name[0]}{log.last_name ? log.last_name[0] : ''}
+                  </div>
+                  <div>
+                    <strong class="log-name">{log.first_name} {log.last_name || ''}</strong>
+                    <span class="log-meta font-mono">{log.member_code} • {log.phone}</span>
+                  </div>
+                </div>
+                <div class="log-right">
+                  <span class="time font-mono">{timeStr}</span>
+                  <Badge variant="ok" size="sm">{log.method}</Badge>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  </div>
+
+  <script is:inline>
+    document.querySelectorAll('.qf-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById('identifier');
+        if (input) {
+          input.value = btn.getAttribute('data-id') || '';
+          input.focus();
+        }
+      });
+    });
+  </script>
+</AppShell>
+
+<style>
+  .attendance-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-xl);
+  }
+
+  @media (max-width: 850px) {
+    .attendance-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .kiosk-card, .feed-card {
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    padding: var(--space-xl);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .kiosk-header, .feed-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-lg);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .feed-header {
+    justify-content: space-between;
+  }
+
+  .kiosk-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-sm);
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .kiosk-header h2, .feed-header h2 {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .subtitle {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .count-pill {
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--accent-soft);
+    color: var(--accent-strong);
+    padding: 3px 10px;
+    border-radius: 99px;
+  }
+
+  .error-banner {
+    background-color: var(--err-soft);
+    border: 1px solid var(--err);
+    color: var(--err);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-md);
+  }
+
+  .success-banner {
+    background-color: var(--ok-soft);
+    border: 1px solid var(--ok);
+    color: var(--ok);
+    padding: var(--space-md);
+    border-radius: var(--radius-sm);
+    margin-bottom: var(--space-md);
+  }
+
+  .success-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .success-header h3 {
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .warning-tag {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #b45309;
+    background: rgba(234, 179, 8, 0.15);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  .kiosk-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+  }
+
+  .input-wrapper label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-2);
+    display: block;
+    margin-bottom: 6px;
+  }
+
+  .kiosk-input {
+    width: 100%;
+    padding: 14px 16px;
+    font-size: 18px;
+    border: 2px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    background-color: var(--surface-2);
+    color: var(--ink);
+    transition: border-color var(--dur) var(--ease);
+  }
+
+  .kiosk-input:focus {
+    outline: none;
+    border-color: var(--accent-strong);
+    background-color: var(--surface);
+  }
+
+  .checkin-submit-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background-color: var(--accent);
+    color: var(--accent-on);
+    border: none;
+    padding: 14px;
+    border-radius: var(--radius-sm);
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color var(--dur) var(--ease);
+  }
+
+  .checkin-submit-btn:hover {
+    background-color: var(--accent-strong);
+  }
+
+  .quick-fill-box {
+    margin-top: var(--space-lg);
+    padding-top: var(--space-md);
+    border-top: 1px solid var(--line);
+  }
+
+  .qf-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    font-weight: 600;
+    color: var(--muted);
+    margin-bottom: var(--space-xs);
+  }
+
+  .qf-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2xs);
+  }
+
+  .qf-btn {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    color: var(--ink-2);
+    text-align: left;
+    cursor: pointer;
+    font-family: var(--font-mono);
+  }
+
+  .qf-btn:hover {
+    border-color: var(--accent-strong);
+    background-color: var(--accent-soft);
+  }
+
+  .logs-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    max-height: 480px;
+    overflow-y: auto;
+  }
+
+  .log-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background-color: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+  }
+
+  .log-left {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .avatar-sm {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: var(--surface);
+    border: 1px solid var(--line-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 11px;
+  }
+
+  .log-name {
+    display: block;
+    font-size: 13px;
+    color: var(--ink);
+  }
+
+  .log-meta {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .log-right {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+  }
+
+  .time {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .empty-state {
+    padding: var(--space-xl);
+    text-align: center;
+    color: var(--muted);
+  }
+</style>

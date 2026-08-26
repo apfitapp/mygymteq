@@ -1,0 +1,87 @@
+---
+interface Props {
+  title: string;
+  value: string | number;
+  subtitle?: string;
+  trend?: string;
+  variant?: 'default' | 'accent' | 'ok' | 'err';
+}
+
+const { title, value, subtitle, trend, variant = 'default' } = Astro.props;
+---
+
+<div class:list={['stat-card', `variant-${variant}`]}>
+  <div class="stat-header">
+    <span class="stat-title">{title}</span>
+    {trend && <span class="stat-trend">{trend}</span>}
+  </div>
+  <div class="stat-value">{value}</div>
+  {subtitle && <div class="stat-subtitle">{subtitle}</div>}
+</div>
+
+<style>
+  .stat-card {
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
+  }
+
+  .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .stat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .stat-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .stat-trend {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 99px;
+    background: var(--ok-soft);
+    color: var(--ok);
+  }
+
+  .stat-value {
+    font-size: 28px;
+    font-weight: 700;
+    font-family: var(--font-display);
+    color: var(--ink);
+    line-height: 1.1;
+  }
+
+  .stat-subtitle {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .variant-accent .stat-value {
+    color: var(--accent-strong);
+  }
+
+  .variant-ok .stat-value {
+    color: var(--ok);
+  }
+
+  .variant-err .stat-value {
+    color: var(--err);
+  }
+</style>

@@ -1,0 +1,430 @@
+---
+import AppShell from '@/components/layout/AppShell.astro';
+import StatCard from '@/components/ui/StatCard.astro';
+import Badge from '@/components/ui/Badge.astro';
+import { DashboardService } from '@/server/services/dashboard.service';
+import { NotificationService } from '@/lib/notifications';
+
+const db = Astro.locals.runtime?.env?.DB;
+const gym = Astro.locals.gym;
+const user = Astro.locals.user;
+
+if (!db || !gym || !user) {
+  return Astro.redirect('/login');
+}
+
+const dashboardService = new DashboardService(db, gym.id);
+const metrics = await dashboardService.getMetrics();
+const notif = new NotificationService(gym.name);
+---
+
+<AppShell title="Dashboard" activeNav="dashboard">
+  <!-- Key Metrics Row -->
+  <section class="metrics-grid">
+    <StatCard 
+      title="Active Members" 
+      value={metrics.activeMembers} 
+      subtitle="Current registered gym members"
+      variant="accent"
+    />
+    <StatCard 
+      title="Today's Check-Ins" 
+      value={metrics.todayAttendance} 
+      subtitle="Attendance logged today"
+      variant="ok"
+    />
+    <StatCard 
+      title="This Month Revenue" 
+      value={`₹${metrics.monthlyRevenue.toLocaleString('en-IN')}`} 
+      subtitle="Collections this calendar month"
+      variant="default"
+    />
+    <StatCard 
+      title="Pending Dues" 
+      value={`₹${metrics.pendingDues.toLocaleString('en-IN')}`} 
+      subtitle="Outstanding membership balances"
+      variant={metrics.pendingDues > 0 ? 'err' : 'default'}
+    />
+  </section>
+
+  <!-- Quick Action Shortcuts -->
+  <section class="quick-actions-bar">
+    <a href="/members/new" class="action-btn primary">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg>
+      <span>New Member Registration</span>
+    </a>
+    <a href="/attendance" class="action-btn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></svg>
+      <span>Instant Attendance Desk</span>
+    </a>
+    <a href="/payments" class="action-btn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></svg>
+      <span>Collect Dues & Payments</span>
+    </a>
+  </section>
+
+  <!-- Two Column Dashboard Grid -->
+  <div class="dashboard-split">
+    <!-- Expiring Memberships Section -->
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div>
+          <h2>Expiring Memberships (Next 7 Days)</h2>
+          <p class="dash-card-sub">Members up for renewal soon</p>
+        </div>
+        <span class="count-badge">{metrics.expiringSoon.length} Expiring</span>
+      </div>
+
+      {metrics.expiringSoon.length === 0 ? (
+        <div class="empty-state">
+          <p>No memberships expiring in the next 7 days.</p>
+        </div>
+      ) : (
+        <div class="table-wrapper">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th>Plan</th>
+                <th>Expires On</th>
+                <th>Due</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {metrics.expiringSoon.map((ms: any) => {
+                const expiryDateStr = new Date(ms.end_date * 1000).toLocaleDateString('en-IN');
+                const whatsappReminderUrl = notif.generateWhatsAppUrl({
+                  recipientPhone: ms.phone,
+                  recipientName: `${ms.first_name} ${ms.last_name || ''}`.trim(),
+                  type: 'EXPIRY_REMINDER',
+                  params: { expiryDate: expiryDateStr },
+                });
+
+                return (
+                  <tr>
+                    <td>
+                      <div class="member-cell">
+                        <span class="name">{ms.first_name} {ms.last_name || ''}</span>
+                        <span class="code font-mono">{ms.member_code} • {ms.phone}</span>
+                      </div>
+                    </td>
+                    <td>{ms.plan_name}</td>
+                    <td>
+                      <span class="expiry-date font-mono">{expiryDateStr}</span>
+                    </td>
+                    <td>
+                      {ms.due_amount > 0 ? (
+                        <span class="due-tag">₹{(ms.due_amount / 100).toLocaleString('en-IN')}</span>
+                      ) : (
+                        <Badge variant="ok" size="sm">Cleared</Badge>
+                      )}
+                    </td>
+                    <td>
+                      <a href={whatsappReminderUrl} target="_blank" rel="noopener noreferrer" class="whatsapp-btn" title="Send WhatsApp Expiry Reminder">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.699c.99.54 1.777.818 2.796.819 3.183 0 5.77-2.587 5.77-5.771 0-3.181-2.587-5.768-5.77-5.768zm0 10.373c-.927 0-1.637-.253-2.399-.705l-.171-.102-1.782.467.476-1.737-.113-.179c-.504-.803-.842-1.464-.842-2.351 0-2.537 2.064-4.601 4.603-4.601 2.538 0 4.604 2.064 4.604 4.603 0 2.539-2.066 4.605-4.607 4.605z"/></svg>
+                        <span>WhatsApp</span>
+                      </a>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+
+    <!-- Recent Payments Section -->
+    <div class="dash-card">
+      <div class="dash-card-header">
+        <div>
+          <h2>Recent Payments</h2>
+          <p class="dash-card-sub">Latest fees and collections</p>
+        </div>
+        <a href="/payments" class="view-all-link">View All</a>
+      </div>
+
+      {metrics.recentPayments.length === 0 ? (
+        <div class="empty-state">
+          <p>No payments recorded yet.</p>
+        </div>
+      ) : (
+        <div class="payments-list">
+          {metrics.recentPayments.map((p: any) => {
+            const receiptWhatsappUrl = notif.generateWhatsAppUrl({
+              recipientPhone: p.phone,
+              recipientName: `${p.first_name} ${p.last_name || ''}`.trim(),
+              type: 'PAYMENT_RECEIPT',
+              params: {
+                amount: p.amount / 100,
+                paymentMode: p.payment_mode,
+                receiptNumber: p.receipt_number,
+              },
+            });
+
+            return (
+              <div class="payment-item">
+                <div class="payment-left">
+                  <div class="payment-mode-tag font-mono">{p.payment_mode}</div>
+                  <div>
+                    <span class="pay-name">{p.first_name} {p.last_name || ''}</span>
+                    <span class="pay-sub font-mono">{p.receipt_number} • {new Date(p.payment_date * 1000).toLocaleDateString('en-IN')}</span>
+                  </div>
+                </div>
+                <div class="payment-right">
+                  <span class="pay-amount font-mono">₹{(p.amount / 100).toLocaleString('en-IN')}</span>
+                  <a href={receiptWhatsappUrl} target="_blank" rel="noopener noreferrer" class="receipt-link" title="Share WhatsApp Receipt">
+                    Share Receipt
+                  </a>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  </div>
+</AppShell>
+
+<style>
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--space-md);
+    margin-bottom: var(--space-lg);
+  }
+
+  .quick-actions-bar {
+    display: flex;
+    gap: var(--space-sm);
+    flex-wrap: wrap;
+    margin-bottom: var(--space-lg);
+  }
+
+  .action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-xs);
+    background-color: var(--surface);
+    border: 1px solid var(--line-strong);
+    color: var(--ink);
+    padding: 10px 16px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: var(--shadow-sm);
+    transition: all var(--dur) var(--ease);
+  }
+
+  .action-btn:hover {
+    background-color: var(--surface-2);
+    border-color: var(--ink-2);
+  }
+
+  .action-btn.primary {
+    background-color: var(--accent);
+    color: var(--accent-on);
+    border-color: var(--accent);
+  }
+
+  .action-btn.primary:hover {
+    background-color: var(--accent-strong);
+  }
+
+  .dashboard-split {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: var(--space-lg);
+  }
+
+  @media (max-width: 900px) {
+    .dashboard-split {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .dash-card {
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    padding: var(--space-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .dash-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: var(--space-md);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .dash-card-header h2 {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .dash-card-sub {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .count-badge {
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--err-soft);
+    color: var(--err);
+    padding: 2px 8px;
+    border-radius: 99px;
+  }
+
+  .view-all-link {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent-strong);
+  }
+
+  .table-wrapper {
+    overflow-x: auto;
+  }
+
+  .dash-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .dash-table th {
+    text-align: left;
+    padding: 8px 10px;
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .dash-table td {
+    padding: 10px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+
+  .member-cell {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .member-cell .name {
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .member-cell .code {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .expiry-date {
+    font-size: 12px;
+    color: var(--err);
+    font-weight: 600;
+  }
+
+  .due-tag {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--err);
+  }
+
+  .whatsapp-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background-color: #25D366;
+    color: #05281A;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 700;
+  }
+
+  .whatsapp-btn:hover {
+    background-color: #20BA5A;
+  }
+
+  .payments-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .payment-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px;
+    border-radius: var(--radius-sm);
+    background-color: var(--surface-2);
+    border: 1px solid var(--line);
+  }
+
+  .payment-left {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .payment-mode-tag {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 3px 6px;
+    border-radius: 4px;
+    background: var(--surface);
+    border: 1px solid var(--line-strong);
+    color: var(--ink-2);
+  }
+
+  .pay-name {
+    font-weight: 600;
+    font-size: 13px;
+    display: block;
+    color: var(--ink);
+  }
+
+  .pay-sub {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .payment-right {
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+
+  .pay-amount {
+    font-weight: 700;
+    font-size: 14px;
+    color: var(--ok);
+  }
+
+  .receipt-link {
+    font-size: 11px;
+    color: var(--accent-strong);
+    font-weight: 600;
+    margin-top: 2px;
+  }
+
+  .empty-state {
+    padding: var(--space-xl);
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+  }
+</style>

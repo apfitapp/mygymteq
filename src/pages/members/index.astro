@@ -1,0 +1,357 @@
+---
+import AppShell from '@/components/layout/AppShell.astro';
+import Badge from '@/components/ui/Badge.astro';
+import { MemberRepository } from '@/server/repositories/member.repository';
+import { NotificationService } from '@/lib/notifications';
+
+const db = Astro.locals.runtime?.env?.DB;
+const gym = Astro.locals.gym;
+
+if (!db || !gym) {
+  return Astro.redirect('/login');
+}
+
+const search = Astro.url.searchParams.get('search') || undefined;
+const statusFilter = Astro.url.searchParams.get('status') || undefined;
+
+const memberRepo = new MemberRepository(db, gym.id);
+const members = await memberRepo.list({
+  search,
+  status: statusFilter,
+});
+
+const notif = new NotificationService(gym.name);
+---
+
+<AppShell title="Member Directory" activeNav="members">
+  <!-- Search and Actions Bar -->
+  <div class="header-actions">
+    <form method="GET" action="/members" class="search-form">
+      <div class="search-box">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input 
+          type="search" 
+          name="search" 
+          placeholder="Search by name, phone (e.g. 9876543210), or Member ID..." 
+          value={search || ''}
+        />
+      </div>
+      {statusFilter && <input type="hidden" name="status" value={statusFilter} />}
+      <button type="submit" class="search-submit">Search</button>
+      {search && <a href="/members" class="clear-search">Clear</a>}
+    </form>
+
+    <a href="/members/new" class="add-member-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+      <span>Register New Member</span>
+    </a>
+  </div>
+
+  <!-- Filter Pills -->
+  <div class="filter-pills">
+    <a href="/members" class:list={['pill', { active: !statusFilter }]}>All ({members.length})</a>
+    <a href="/members?status=ACTIVE" class:list={['pill', { active: statusFilter === 'ACTIVE' }]}>Active</a>
+    <a href="/members?status=EXPIRED" class:list={['pill', { active: statusFilter === 'EXPIRED' }]}>Expired</a>
+    <a href="/members?status=INACTIVE" class:list={['pill', { active: statusFilter === 'INACTIVE' }]}>Inactive</a>
+  </div>
+
+  <!-- Members Table -->
+  <div class="table-card">
+    {members.length === 0 ? (
+      <div class="empty-state">
+        <p>No members found matching your search criteria.</p>
+        <a href="/members/new" class="add-link">Register a new member now</a>
+      </div>
+    ) : (
+      <div class="table-responsive">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Member Code</th>
+              <th>Name & Contact</th>
+              <th>Current Plan</th>
+              <th>Plan Expiry</th>
+              <th>Due Amount</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {members.map((m: any) => {
+              const expiryDate = m.membership_end_date ? new Date(m.membership_end_date * 1000).toLocaleDateString('en-IN') : 'No Plan';
+              const whatsappUrl = notif.generateWhatsAppUrl({
+                recipientPhone: m.phone,
+                recipientName: `${m.first_name} ${m.last_name || ''}`.trim(),
+                type: 'WELCOME',
+                params: { memberCode: m.member_code },
+              });
+
+              return (
+                <tr>
+                  <td>
+                    <span class="member-code font-mono">{m.member_code}</span>
+                  </td>
+                  <td>
+                    <div class="member-profile">
+                      <div class="avatar-thumb">
+                        {m.photo_url ? (
+                          <img src={m.photo_url} alt={m.first_name} />
+                        ) : (
+                          <span>{m.first_name[0]}{m.last_name ? m.last_name[0] : ''}</span>
+                        )}
+                      </div>
+                      <div>
+                        <strong class="member-name">{m.first_name} {m.last_name || ''}</strong>
+                        <span class="member-phone font-mono">{m.phone}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="plan-badge">{m.plan_name || 'No Active Plan'}</span>
+                  </td>
+                  <td>
+                    <span class="expiry-date font-mono">{expiryDate}</span>
+                  </td>
+                  <td>
+                    {m.membership_due_amount > 0 ? (
+                      <span class="due-badge font-mono">₹{(m.membership_due_amount / 100).toLocaleString('en-IN')}</span>
+                    ) : (
+                      <Badge variant="ok" size="sm">Cleared</Badge>
+                    )}
+                  </td>
+                  <td>
+                    <Badge 
+                      variant={m.status === 'ACTIVE' ? 'ok' : m.status === 'EXPIRED' ? 'err' : 'muted'} 
+                      size="sm"
+                    >
+                      {m.status}
+                    </Badge>
+                  </td>
+                  <td>
+                    <div class="row-actions">
+                      <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" class="wa-action" title="Chat on WhatsApp">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.711 2.598 2.664-.699c.99.54 1.777.818 2.796.819 3.183 0 5.77-2.587 5.77-5.771 0-3.181-2.587-5.768-5.77-5.768zm0 10.373c-.927 0-1.637-.253-2.399-.705l-.171-.102-1.782.467.476-1.737-.113-.179c-.504-.803-.842-1.464-.842-2.351 0-2.537 2.064-4.601 4.603-4.601 2.538 0 4.604 2.064 4.604 4.603 0 2.539-2.066 4.605-4.607 4.605z"/></svg>
+                      </a>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    )}
+  </div>
+</AppShell>
+
+<style>
+  .header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-md);
+    margin-bottom: var(--space-md);
+    flex-wrap: wrap;
+  }
+
+  .search-form {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    flex: 1;
+    max-width: 540px;
+  }
+
+  .search-box {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    background-color: var(--surface);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    flex: 1;
+  }
+
+  .search-box input {
+    border: none;
+    background: transparent;
+    outline: none;
+    width: 100%;
+    color: var(--ink);
+    font-size: 14px;
+  }
+
+  .search-submit {
+    background-color: var(--surface-2);
+    border: 1px solid var(--line-strong);
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--ink);
+  }
+
+  .clear-search {
+    font-size: 12px;
+    color: var(--err);
+  }
+
+  .add-member-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background-color: var(--accent);
+    color: var(--accent-on);
+    padding: 10px 16px;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 13px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .add-member-btn:hover {
+    background-color: var(--accent-strong);
+  }
+
+  .filter-pills {
+    display: flex;
+    gap: var(--space-xs);
+    margin-bottom: var(--space-md);
+  }
+
+  .pill {
+    padding: 4px 12px;
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    color: var(--muted);
+  }
+
+  .pill.active {
+    background: var(--ink);
+    color: var(--bg);
+    border-color: var(--ink);
+  }
+
+  .table-card {
+    background-color: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+  }
+
+  .table-responsive {
+    overflow-x: auto;
+  }
+
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .data-table th {
+    text-align: left;
+    padding: 12px 16px;
+    background-color: var(--surface-2);
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .data-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: middle;
+  }
+
+  .member-code {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 600;
+  }
+
+  .member-profile {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+  }
+
+  .avatar-thumb {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background-color: var(--surface-2);
+    border: 1px solid var(--line-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink);
+    overflow: hidden;
+  }
+
+  .avatar-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .member-name {
+    display: block;
+    color: var(--ink);
+    font-size: 14px;
+  }
+
+  .member-phone {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .plan-badge {
+    font-weight: 500;
+    color: var(--ink);
+  }
+
+  .expiry-date {
+    font-size: 12px;
+    color: var(--ink-2);
+  }
+
+  .due-badge {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--err);
+  }
+
+  .wa-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background-color: #25D366;
+    color: #05281A;
+  }
+
+  .empty-state {
+    padding: var(--space-3xl);
+    text-align: center;
+    color: var(--muted);
+  }
+
+  .add-link {
+    display: inline-block;
+    margin-top: var(--space-sm);
+    color: var(--accent-strong);
+    font-weight: 600;
+  }
+</style>

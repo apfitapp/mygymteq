@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "mygymteq-api",
+  "account_id": "254f1f1eb75c7989e323f5b139142ca9",
   "main": "src/index.ts",
   "compatibility_date": "2025-02-14",
   "compatibility_flags": ["nodejs_compat"],
@@ -8,14 +9,8 @@
     {
       "binding": "DB",
       "database_name": "gym-d1-prod",
-      "database_id": "local-d1-id",
+      "database_id": "46bf7b9d-0284-4f4d-b91e-2caafe5289cf",
       "migrations_dir": "src/db/migrations"
-    }
-  ],
-  "r2_buckets": [
-    {
-      "binding": "STORAGE",
-      "bucket_name": "gym-media-storage"
     }
   ],
   "vars": {

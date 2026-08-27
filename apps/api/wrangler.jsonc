@@ -12,12 +12,6 @@
       "migrations_dir": "migrations"
     }
   ],
-  "r2_buckets": [
-    {
-      "binding": "MEDIA_BUCKET",
-      "bucket_name": "gym-media-prod"
-    }
-  ],
   "vars": {
     "JWT_SECRET": "gym-saas-jwt-super-secret-production-key-2026",
     "APP_ENV": "production",

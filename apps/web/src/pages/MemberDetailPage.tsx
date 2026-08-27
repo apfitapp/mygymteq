@@ -81,8 +81,12 @@ export const MemberDetailPage: React.FC = () => {
         <Card className="border-border shadow-xs bg-card p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
             <div className="flex items-center gap-4">
-              <div className="size-16 rounded-2xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-display text-xl font-bold shrink-0">
-                {initials}
+              <div className="size-16 rounded-2xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-display text-xl font-bold shrink-0 overflow-hidden shadow-xs">
+                {member.photo_url ? (
+                  <img src={member.photo_url} alt={member.first_name} className="size-full object-cover" />
+                ) : (
+                  initials
+                )}
               </div>
 
               <div className="flex flex-col gap-1 min-w-0">

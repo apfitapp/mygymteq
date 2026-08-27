@@ -45,6 +45,7 @@ export const CreateMemberRequestSchema = z.object({
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
   dateOfBirth: z.string().optional(),
   joinedDate: z.string().optional(),
+  photoUrl: z.string().optional(),
   address: z.string().optional(),
   emergencyContactName: z.string().optional(),
   emergencyContactPhone: z.string().optional(),

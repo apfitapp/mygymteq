@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { CustomSelect } from '@/components/ui/CustomSelect';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { PhotoCaptureUpload } from '@/components/ui/PhotoCaptureUpload';
 import { api } from '@/lib/api';
 import { CreateMemberResponse } from '@gym/shared';
 
@@ -24,6 +25,7 @@ export const NewMemberPage: React.FC = () => {
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  const [photoUrl, setPhotoUrl] = useState('');
   const [gender, setGender] = useState<'MALE' | 'FEMALE' | 'OTHER'>('MALE');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [joinedDate, setJoinedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -71,6 +73,7 @@ export const NewMemberPage: React.FC = () => {
         gender,
         dateOfBirth: dateOfBirth || undefined,
         joinedDate,
+        photoUrl: photoUrl || undefined,
         address: address || undefined,
         emergencyContactName: emergencyContactName || undefined,
         emergencyContactPhone: emergencyContactPhone || undefined,
@@ -162,6 +165,12 @@ export const NewMemberPage: React.FC = () => {
                 </div>
               </CardHeader>
               <CardContent className="pt-4 flex flex-col gap-4">
+                <PhotoCaptureUpload
+                  value={photoUrl}
+                  onChange={setPhotoUrl}
+                  label="Member Avatar / Photo (Free WebP Compression)"
+                />
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="firstName" className="text-xs font-semibold">First Name *</Label>

@@ -114,8 +114,12 @@ export const MembersPage: React.FC = () => {
                     <TableRow key={m.id} className="hover:bg-secondary/40">
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <div className="size-8 rounded-lg bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-display text-xs font-bold shrink-0">
-                            {initials}
+                          <div className="size-8 rounded-lg bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-display text-xs font-bold shrink-0 overflow-hidden shadow-2xs">
+                            {m.photo_url ? (
+                              <img src={m.photo_url} alt={m.first_name} className="size-full object-cover" />
+                            ) : (
+                              initials
+                            )}
                           </div>
                           <div className="flex flex-col min-w-0">
                             <a

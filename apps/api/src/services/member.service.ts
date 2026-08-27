@@ -34,6 +34,7 @@ export class MemberService {
     gender?: 'MALE' | 'FEMALE' | 'OTHER';
     dateOfBirth?: string;
     joinedDate?: string;
+    photoUrl?: string;
     address?: string;
     emergencyContactName?: string;
     emergencyContactPhone?: string;
@@ -66,6 +67,7 @@ export class MemberService {
       phone: data.phone.trim(),
       gender: data.gender || null,
       date_of_birth: data.dateOfBirth || null,
+      photo_url: data.photoUrl || null,
       address: data.address || null,
       emergency_contact_name: data.emergencyContactName || null,
       emergency_contact_phone: data.emergencyContactPhone || null,

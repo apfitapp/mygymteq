@@ -1,0 +1,25 @@
+{
+  "name": "@gym/api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "deploy": "wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply gym-d1-prod --local",
+    "db:migrate:remote": "wrangler d1 migrations apply gym-d1-prod --remote",
+    "db:seed:local": "wrangler d1 execute gym-d1-prod --local --file=./migrations/0000_init_schema.sql"
+  },
+  "dependencies": {
+    "@gym/shared": "workspace:*",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250214.0",
+    "typescript": "^5.7.3",
+    "wrangler": "^3.114.17"
+  }
+}

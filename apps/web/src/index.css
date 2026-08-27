@@ -1,0 +1,186 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+/* ============================================================
+   Tailwind CSS v4 + shadcn/ui Theme Mapping
+   ============================================================ */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Functional Status Colors */
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-err: var(--err);
+  --color-warn: var(--warn);
+
+  /* Surface & Ink Aliases */
+  --color-surface: var(--card);
+  --color-surface-2: var(--secondary);
+  --color-ink: var(--foreground);
+
+  /* Radii */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Typography */
+  --font-sans: "Inter", -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Outfit", "Plus Jakarta Sans", "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+}
+
+/* ============================================================
+   CSS Variables for Light & Dark Themes (Clean Precision)
+   ============================================================ */
+
+@layer base {
+  :root {
+    --background: #FAF9F6;
+    --foreground: #1B1A17;
+    --card: #FFFFFF;
+    --card-foreground: #1B1A17;
+    --popover: #FFFFFF;
+    --popover-foreground: #1B1A17;
+    --primary: #00C96E;
+    --primary-foreground: #021B13;
+    --secondary: #F3F1EC;
+    --secondary-foreground: #1B1A17;
+    --muted: #F3F1EC;
+    --muted-foreground: #736F66;
+    --accent: #EFECE6;
+    --accent-foreground: #1B1A17;
+    --destructive: #B91C1C;
+    --destructive-foreground: #FFFFFF;
+    --border: #E6E2D9;
+    --input: #D4CFC2;
+    --ring: #00C96E;
+    --ok: #15803D;
+    --ok-soft: rgba(21, 128, 61, 0.1);
+    --err: #B91C1C;
+    --warn: #D97706;
+    --radius: 0.625rem;
+
+    --sidebar-w: 240px;
+    --header-h: 60px;
+    --maxw: 1200px;
+  }
+
+  .dark,
+  body.dark-theme {
+    --background: #121210;
+    --foreground: #EDEDE8;
+    --card: #1A1916;
+    --card-foreground: #EDEDE8;
+    --popover: #1A1916;
+    --popover-foreground: #EDEDE8;
+    --primary: #00E57A;
+    --primary-foreground: #021B13;
+    --secondary: #22211D;
+    --secondary-foreground: #EDEDE8;
+    --muted: #22211D;
+    --muted-foreground: #9A958A;
+    --accent: #262521;
+    --accent-foreground: #EDEDE8;
+    --destructive: #EF4444;
+    --destructive-foreground: #FFFFFF;
+    --border: #2B2A25;
+    --input: #383630;
+    --ring: #00E57A;
+    --ok: #22C55E;
+    --ok-soft: rgba(34, 197, 94, 0.12);
+    --err: #EF4444;
+    --warn: #F59E0B;
+    --radius: 0.625rem;
+
+    --sidebar-w: 240px;
+    --header-h: 60px;
+    --maxw: 1200px;
+  }
+}
+
+/* ============================================================
+   Base Resets
+   ============================================================ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light;
+  overflow-x: hidden;
+}
+
+html.dark,
+body.dark-theme {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, .font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+::selection {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+/* Text Gradient utility */
+.text-gradient {
+  background: linear-gradient(135deg, #4DFFA8 0%, #00E57A 50%, #00C96E 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--muted-foreground);
+}

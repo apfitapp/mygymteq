@@ -1,28 +1,25 @@
 {
-  "name": "mygymteq",
-  "version": "0.1.0",
+  "name": "mygymtek",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "astro dev",
-    "build": "astro build",
-    "preview": "astro preview",
-    "deploy": "wrangler pages deploy dist",
+    "dev": "pnpm --parallel --filter \"@gym/*\" dev",
+    "dev:web": "pnpm --filter @gym/web dev",
+    "dev:api": "pnpm --filter @gym/api dev",
+    "build": "pnpm --filter @gym/shared build && pnpm --filter @gym/api build && pnpm --filter @gym/web build",
+    "build:web": "pnpm --filter @gym/shared build && pnpm --filter @gym/web build",
+    "build:api": "pnpm --filter @gym/shared build && pnpm --filter @gym/api build",
+    "typecheck": "pnpm --recursive run typecheck",
     "test": "vitest run",
-    "db:migrate:local": "wrangler d1 migrations apply gym-d1-prod --local",
-    "db:migrate:remote": "wrangler d1 migrations apply gym-d1-prod --remote",
-    "typecheck": "astro check"
-  },
-  "dependencies": {
-    "@astrojs/check": "^0.9.4",
-    "@astrojs/cloudflare": "^12.2.3",
-    "astro": "^5.4.1",
-    "zod": "^3.24.2"
+    "test:e2e": "playwright test",
+    "db:migrate:local": "pnpm --filter @gym/api db:migrate:local",
+    "db:seed:local": "pnpm --filter @gym/api db:seed:local"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250214.0",
+    "@types/node": "^22.13.1",
     "typescript": "^5.7.3",
     "vitest": "^3.0.7",
-    "wrangler": "^3.114.17"
+    "@playwright/test": "^1.50.1"
   }
 }

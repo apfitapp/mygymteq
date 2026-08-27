@@ -2,28 +2,42 @@
 node_modules/
 .pnpm-store/
 
-# Build artifacts
+# Production & Build outputs
 dist/
 build/
-.astro/
-.turbo/
-
-# Cloudflare Wrangler Local State
 .wrangler/
-.mf/
+*.tsbuildinfo
+packages/shared/src/**/*.js
+packages/shared/src/**/*.js.map
+packages/shared/src/**/*.d.ts
+packages/shared/src/**/*.d.ts.map
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Testing & Coverage
+test-results/
+playwright-report/
+blob-report/
+coverage/
 
 # Environment files
 .env
-.env.local
-.env.*.local
-*.env
+.env.*
+!.env.example
 
-# Logs
-*.log
-npm-debug.log*
-pnpm-debug.log*
-yarn-debug.log*
-
-# OS Files
+# IDE & System
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 .DS_Store
 Thumbs.db

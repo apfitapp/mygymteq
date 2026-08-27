@@ -5,6 +5,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { CustomSelect } from '@/components/ui/CustomSelect';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -218,16 +219,16 @@ export const StaffPage: React.FC = () => {
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="staffRole" className="text-xs font-semibold">Role *</Label>
-                <select
+                <CustomSelect
                   id="staffRole"
                   value={role}
                   onChange={(e) => setRole(e.target.value as any)}
-                  className="h-9 px-3 rounded-md border border-input bg-card text-xs font-sans focus:outline-none focus:ring-1 focus:ring-ring"
-                >
-                  <option value="STAFF">Front Desk / Staff</option>
-                  <option value="TRAINER">Fitness Trainer</option>
-                  <option value="MANAGER">Gym Manager</option>
-                </select>
+                  options={[
+                    { value: 'STAFF', label: 'Front Desk / Staff' },
+                    { value: 'TRAINER', label: 'Fitness Trainer' },
+                    { value: 'MANAGER', label: 'Gym Manager' },
+                  ]}
+                />
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="staffPassword" className="text-xs font-semibold">Initial Password *</Label>

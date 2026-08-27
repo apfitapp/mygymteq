@@ -5,7 +5,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CustomSelect } from '@/components/ui/CustomSelect';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { api } from '@/lib/api';
@@ -216,16 +216,16 @@ export const NewMemberPage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="gender" className="text-xs font-semibold">Gender</Label>
-                    <select
+                    <CustomSelect
                       id="gender"
                       value={gender}
                       onChange={(e) => setGender(e.target.value as any)}
-                      className="h-9 px-3 rounded-md border border-input bg-card text-xs font-sans focus:outline-none focus:ring-1 focus:ring-ring"
-                    >
-                      <option value="MALE">Male</option>
-                      <option value="FEMALE">Female</option>
-                      <option value="OTHER">Other</option>
-                    </select>
+                      options={[
+                        { value: 'MALE', label: 'Male' },
+                        { value: 'FEMALE', label: 'Female' },
+                        { value: 'OTHER', label: 'Other' },
+                      ]}
+                    />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="dateOfBirth" className="text-xs font-semibold">Date of Birth</Label>
@@ -264,23 +264,17 @@ export const NewMemberPage: React.FC = () => {
               <CardContent className="pt-4 flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="planId" className="text-xs font-semibold">Select Membership Package *</Label>
-                  <select
+                  <CustomSelect
                     id="planId"
                     required
                     value={planId}
                     onChange={(e) => handlePlanChange(e.target.value)}
-                    className="h-9 px-3 rounded-md border border-input bg-card text-xs font-sans focus:outline-none focus:ring-1 focus:ring-ring"
-                  >
-                    {plansLoading ? (
-                      <option>Loading plans...</option>
-                    ) : (
-                      plans.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({p.duration_months} mo) — ₹{(p.price / 100).toLocaleString('en-IN')}
-                        </option>
-                      ))
-                    )}
-                  </select>
+                    options={plans.map((p) => ({
+                      value: p.id,
+                      label: `${p.name} (${p.duration_months} mo) — ₹${(p.price / 100).toLocaleString('en-IN')}`,
+                    }))}
+                    placeholder={plansLoading ? 'Loading plans...' : 'Choose package'}
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -314,17 +308,17 @@ export const NewMemberPage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="paymentMode" className="text-xs font-semibold">Payment Mode</Label>
-                    <select
+                    <CustomSelect
                       id="paymentMode"
                       value={paymentMode}
                       onChange={(e) => setPaymentMode(e.target.value as any)}
-                      className="h-9 px-3 rounded-md border border-input bg-card text-xs font-sans focus:outline-none focus:ring-1 focus:ring-ring"
-                    >
-                      <option value="UPI">UPI / QR Code</option>
-                      <option value="CASH">Cash</option>
-                      <option value="CARD">Debit / Credit Card</option>
-                      <option value="NETBANKING">Net Banking</option>
-                    </select>
+                      options={[
+                        { value: 'UPI', label: 'UPI / QR Code' },
+                        { value: 'CASH', label: 'Cash' },
+                        { value: 'CARD', label: 'Debit / Credit Card' },
+                        { value: 'NETBANKING', label: 'Net Banking' },
+                      ]}
+                    />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="referenceId" className="text-xs font-semibold">Reference ID / Notes</Label>

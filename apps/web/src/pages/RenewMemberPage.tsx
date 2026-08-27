@@ -6,6 +6,7 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { CustomSelect } from '@/components/ui/CustomSelect';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { api } from '@/lib/api';
@@ -148,19 +149,17 @@ export const RenewMemberPage: React.FC = () => {
               <CardContent className="pt-4 flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="planId" className="text-xs font-semibold">Select Plan *</Label>
-                  <select
+                  <CustomSelect
                     id="planId"
                     required
                     value={planId}
                     onChange={(e) => handlePlanChange(e.target.value)}
-                    className="h-9 px-3 rounded-md border border-input bg-card text-xs font-sans focus:outline-none focus:ring-1 focus:ring-ring"
-                  >
-                    {plans.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} ({p.duration_months} mo) — ₹{(p.price / 100).toLocaleString('en-IN')}
-                      </option>
-                    ))}
-                  </select>
+                    options={plans.map((p) => ({
+                      value: p.id,
+                      label: `${p.name} (${p.duration_months} mo) — ₹${(p.price / 100).toLocaleString('en-IN')}`,
+                    }))}
+                    placeholder="Choose renewal package"
+                  />
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -205,17 +204,17 @@ export const RenewMemberPage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="paymentMode" className="text-xs font-semibold">Payment Mode</Label>
-                    <select
+                    <CustomSelect
                       id="paymentMode"
                       value={paymentMode}
                       onChange={(e) => setPaymentMode(e.target.value as any)}
-                      className="h-9 px-3 rounded-md border border-input bg-card text-xs font-sans focus:outline-none focus:ring-1 focus:ring-ring"
-                    >
-                      <option value="UPI">UPI / QR Code</option>
-                      <option value="CASH">Cash</option>
-                      <option value="CARD">Debit / Credit Card</option>
-                      <option value="NETBANKING">Net Banking</option>
-                    </select>
+                      options={[
+                        { value: 'UPI', label: 'UPI / QR Code' },
+                        { value: 'CASH', label: 'Cash' },
+                        { value: 'CARD', label: 'Debit / Credit Card' },
+                        { value: 'NETBANKING', label: 'Net Banking' },
+                      ]}
+                    />
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="referenceId" className="text-xs font-semibold">Reference / Notes</Label>

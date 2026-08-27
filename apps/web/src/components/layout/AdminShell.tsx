@@ -25,20 +25,20 @@ export const AdminShell: React.FC<AdminShellProps> = ({ title, children }) => {
 
       {/* Admin Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[var(--sidebar-w)] flex-col border-r border-border bg-card transition-transform duration-200 md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[var(--sidebar-w)] flex-col border-r border-border/80 bg-card/95 backdrop-blur-md transition-transform duration-200 md:static md:translate-x-0 ${
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         <div className="flex h-[var(--header-h)] items-center justify-between border-b border-border px-5">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="size-8 rounded-lg bg-foreground text-background flex items-center justify-center font-display text-base font-bold shrink-0">
+            <div className="size-8 rounded-xs bg-foreground text-background flex items-center justify-center font-display text-base font-bold shrink-0">
               G
             </div>
             <div className="min-w-0">
               <p className="font-display text-sm font-bold text-foreground leading-tight truncate">
                 GymTeq Platform
               </p>
-              <span className="inline-flex rounded-full bg-err/10 px-1.5 py-0.2 font-mono text-[9px] font-bold text-err border border-err/20">
+              <span className="inline-flex rounded-xs bg-err/10 px-1.5 py-0.2 font-mono text-[9px] font-bold text-err border border-err/20">
                 SUPER ADMIN
               </span>
             </div>
@@ -46,7 +46,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({ title, children }) => {
           <button
             type="button"
             onClick={() => setMobileMenuOpen(false)}
-            className="rounded-md p-1 text-muted-foreground hover:text-foreground md:hidden"
+            className="rounded-xs p-1 text-muted-foreground hover:text-foreground md:hidden"
             aria-label="Close menu"
           >
             <X className="size-5" />
@@ -57,13 +57,13 @@ export const AdminShell: React.FC<AdminShellProps> = ({ title, children }) => {
           <p className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
             Platform control
           </p>
-          <p className="mt-0.5 text-xs text-muted-foreground">Manage gym tenants & commercial plans.</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">Manage gym tenants &amp; commercial plans.</p>
         </div>
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-1">
           <a
             href="#/admin"
-            className="flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-semibold bg-foreground text-background"
+            className="flex items-center gap-3 rounded-xs px-3 py-2 text-xs font-semibold bg-foreground text-background"
           >
             <Building2 className="size-4 shrink-0" />
             <span>Gyms &amp; Tenants</span>
@@ -71,9 +71,9 @@ export const AdminShell: React.FC<AdminShellProps> = ({ title, children }) => {
         </nav>
 
         <div className="border-t border-border p-3">
-          <div className="flex items-center justify-between p-2 rounded-lg bg-surface-2 border border-border">
+          <div className="flex items-center justify-between p-2 rounded-xs bg-surface-2 border border-border">
             <div className="flex items-center gap-2.5 min-w-0">
-              <div className="size-7 rounded-md bg-foreground text-background font-mono text-xs font-bold flex items-center justify-center">
+              <div className="size-7 rounded-xs bg-foreground text-background font-mono text-xs font-bold flex items-center justify-center">
                 SA
               </div>
               <div className="min-w-0 flex-1">
@@ -85,7 +85,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({ title, children }) => {
               variant="ghost"
               size="icon"
               onClick={logout}
-              className="size-7 text-muted-foreground hover:text-destructive"
+              className="size-7 rounded-xs text-muted-foreground hover:text-destructive"
               title="Sign out"
             >
               <LogOut className="size-3.5" />
@@ -96,7 +96,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({ title, children }) => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="sticky top-0 z-30 flex h-[var(--header-h)] shrink-0 items-center justify-between gap-4 border-b border-border bg-card/95 backdrop-blur-md px-4 sm:px-6 lg:px-8">
+        <header className="sticky top-0 z-30 flex h-[var(--header-h)] shrink-0 items-center justify-between gap-4 border-b border-border/80 bg-card/85 backdrop-blur-xl px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-3 min-w-0">
             <Button
               variant="outline"

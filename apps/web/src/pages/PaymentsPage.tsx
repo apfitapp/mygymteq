@@ -14,6 +14,7 @@ import { StatCard } from '@/components/ui/StatCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { CustomSelect } from '@/components/ui/CustomSelect';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import {
@@ -55,6 +56,12 @@ export const PaymentsPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successInfo, setSuccessInfo] = useState<{ receiptNumber: string; whatsappUrl?: string } | null>(null);
+
+  React.useEffect(() => {
+    if (members.length > 0 && !selectedMemberId) {
+      setSelectedMemberId(members[0].id);
+    }
+  }, [members, selectedMemberId]);
 
   const formatCurrency = (paise: number) => {
     return `₹${((paise || 0) / 100).toLocaleString('en-IN')}`;
@@ -262,19 +269,17 @@ export const PaymentsPage: React.FC = () => {
             <form onSubmit={handleRecordSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="memberSelect" className="text-xs font-semibold">Select Member *</Label>
-                <select
+                <CustomSelect
                   id="memberSelect"
                   required
                   value={selectedMemberId}
                   onChange={(e) => setSelectedMemberId(e.target.value)}
-                  className="h-9 px-3 rounded-md border border-input bg-card text-xs font-sans focus:outline-none focus:ring-1 focus:ring-ring"
-                >
-                  {members.map((m: any) => (
-                    <option key={m.id} value={m.id}>
-                      {m.first_name} {m.last_name || ''} ({m.member_code}) {m.membership_due_amount > 0 ? `— Due: ${formatCurrency(m.membership_due_amount)}` : ''}
-                    </option>
-                  ))}
-                </select>
+                  options={members.map((m: any) => ({
+                    value: m.id,
+                    label: `${m.first_name} ${m.last_name || ''} (${m.member_code})${m.membership_due_amount > 0 ? ` — Due: ${formatCurrency(m.membership_due_amount)}` : ''}`,
+                  }))}
+                  placeholder="Select member"
+                />
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -294,17 +299,17 @@ export const PaymentsPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="mode" className="text-xs font-semibold">Payment Mode</Label>
-                  <select
+                  <CustomSelect
                     id="mode"
                     value={paymentMode}
                     onChange={(e) => setPaymentMode(e.target.value as any)}
-                    className="h-9 px-3 rounded-md border border-input bg-card text-xs font-sans focus:outline-none focus:ring-1 focus:ring-ring"
-                  >
-                    <option value="UPI">UPI / QR Code</option>
-                    <option value="CASH">Cash</option>
-                    <option value="CARD">Debit / Credit Card</option>
-                    <option value="NETBANKING">Net Banking</option>
-                  </select>
+                    options={[
+                      { value: 'UPI', label: 'UPI / QR Code' },
+                      { value: 'CASH', label: 'Cash' },
+                      { value: 'CARD', label: 'Debit / Credit Card' },
+                      { value: 'NETBANKING', label: 'Net Banking' },
+                    ]}
+                  />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="ref" className="text-xs font-semibold">Ref / Notes</Label>

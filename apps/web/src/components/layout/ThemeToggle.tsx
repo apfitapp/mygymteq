@@ -16,9 +16,9 @@ export const ThemeToggle: React.FC<{ variant?: 'default' | 'outline' | 'ghost'; 
       onClick={toggleTheme}
       title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
       aria-label="Toggle theme"
-      className="text-muted-foreground hover:text-foreground"
+      className="text-muted-foreground hover:text-foreground rounded-xs size-8 border border-border/80 bg-card/60 backdrop-blur-md transition-all duration-150"
     >
-      {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
+      {theme === 'dark' ? <Sun className="size-4 text-warn" /> : <Moon className="size-4 text-foreground" />}
     </Button>
   );
 };

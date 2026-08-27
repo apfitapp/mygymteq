@@ -14,6 +14,7 @@ import { StatCard } from '@/components/ui/StatCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { CustomSelect } from '@/components/ui/CustomSelect';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -323,18 +324,16 @@ export const AdminPage: React.FC = () => {
                   </div>
                   <div className="flex flex-col gap-1">
                     <Label htmlFor="gPlan" className="text-xs font-semibold">SaaS Plan *</Label>
-                    <select
+                    <CustomSelect
                       id="gPlan"
                       value={planId}
                       onChange={(e) => setPlanId(e.target.value)}
-                      className="h-9 px-2.5 rounded-md border border-input bg-card text-xs font-sans focus:outline-none focus:ring-1 focus:ring-ring"
-                    >
-                      {plans.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} (₹{p.price_monthly / 100}/mo)
-                        </option>
-                      ))}
-                    </select>
+                      options={plans.map((p) => ({
+                        value: p.id,
+                        label: `${p.name} (₹${p.price_monthly / 100}/mo)`,
+                      }))}
+                      placeholder="Select SaaS plan"
+                    />
                   </div>
                 </div>
 

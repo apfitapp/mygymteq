@@ -22,6 +22,12 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { useAuth } from '@/lib/auth';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion';
 
 export const LandingPage: React.FC = () => {
   const { user, login } = useAuth();
@@ -66,7 +72,7 @@ export const LandingPage: React.FC = () => {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           <a href="#/" className="flex items-center gap-2.5 font-display text-xl font-bold tracking-tight">
-            <div className="size-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-md shadow-primary/20">
+            <div className="size-9 rounded-xs bg-primary text-primary-foreground flex items-center justify-center shadow-md shadow-primary/20">
               <Dumbbell className="size-5" />
             </div>
             <span className="font-display font-extrabold text-lg text-foreground">
@@ -85,7 +91,7 @@ export const LandingPage: React.FC = () => {
             <ThemeToggle />
 
             {user ? (
-              <Button asChild size="sm" className="bg-primary text-primary-foreground font-bold text-xs h-9 rounded-lg shadow-sm gap-2">
+              <Button asChild size="sm" className="bg-primary text-primary-foreground font-bold text-xs h-9 rounded-xs shadow-sm gap-2">
                 <a href={user.role === 'SUPER_ADMIN' ? '#/admin' : '#/dashboard'}>
                   <span>Open Workspace</span>
                   <ArrowRight className="size-4" />
@@ -93,10 +99,10 @@ export const LandingPage: React.FC = () => {
               </Button>
             ) : (
               <>
-                <Button variant="ghost" asChild size="sm" className="text-xs h-9 font-medium">
+                <Button variant="ghost" asChild size="sm" className="text-xs h-9 font-medium rounded-xs">
                   <a href="#/login">Sign In</a>
                 </Button>
-                <Button asChild size="sm" className="bg-primary text-primary-foreground font-bold text-xs h-9 rounded-lg shadow-sm">
+                <Button asChild size="sm" className="bg-primary text-primary-foreground font-bold text-xs h-9 rounded-xs shadow-sm">
                   <a href="#/login">Launch App</a>
                 </Button>
               </>
@@ -106,7 +112,7 @@ export const LandingPage: React.FC = () => {
           {/* Mobile Menu Toggle */}
           <button
             type="button"
-            className="md:hidden p-2 rounded-lg border border-border text-foreground"
+            className="md:hidden p-2 rounded-xs border border-border text-foreground"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label="Toggle navigation menu"
           >
@@ -145,8 +151,8 @@ export const LandingPage: React.FC = () => {
         <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center pt-6 pb-12 relative">
           <div className="max-w-4xl mx-auto flex flex-col items-center">
             {/* Pill Badge */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-primary/25 bg-primary/10 text-xs font-mono font-semibold text-primary mb-6 shadow-xs">
-              <span className="size-2 rounded-full bg-primary animate-pulse" />
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xs border border-primary/30 bg-primary/10 text-xs font-mono font-semibold text-primary mb-6 shadow-xs">
+              <span className="size-2 rounded-xs bg-primary animate-pulse" />
               <span>Cloudflare Edge Gym Management Platform</span>
             </div>
 
@@ -167,7 +173,7 @@ export const LandingPage: React.FC = () => {
                 size="lg"
                 disabled={isDemoLoggingIn}
                 onClick={() => handleQuickDemo('admin@ironhouse.in', 'OWNER')}
-                className="h-12 px-7 text-xs sm:text-sm font-bold rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:shadow-primary/35 transition-all"
+                className="h-12 px-7 text-xs sm:text-sm font-bold rounded-xs bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:shadow-primary/35 transition-all"
               >
                 <span>{isDemoLoggingIn ? 'Entering...' : '⚡ Launch Demo as Gym Owner'}</span>
                 <ArrowRight className="size-4 ml-1.5" />
@@ -178,36 +184,24 @@ export const LandingPage: React.FC = () => {
                 variant="outline"
                 disabled={isDemoLoggingIn}
                 onClick={() => handleQuickDemo('superadmin@mygymteq.com', 'SUPER_ADMIN')}
-                className="h-12 px-5 text-xs sm:text-sm font-semibold rounded-xl border-border hover:bg-secondary text-foreground"
+                className="h-12 px-5 text-xs sm:text-sm font-semibold rounded-xs border-border hover:bg-secondary text-foreground"
               >
                 <span>🛡️ Super Admin View</span>
               </Button>
             </div>
 
-            {/* Quick role pills */}
+            {/* Platform Role Scope Note */}
             <div className="flex items-center gap-2 text-xs text-muted-foreground font-mono">
-              <span>Or explore:</span>
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('staff@ironhouse.in', 'STAFF')}
-                className="underline hover:text-foreground"
-              >
-                Front Desk
-              </button>
-              <span>•</span>
-              <button
-                type="button"
-                onClick={() => handleQuickDemo('trainer@ironhouse.in', 'TRAINER')}
-                className="underline hover:text-foreground"
-              >
-                Trainer Portal
-              </button>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xs bg-secondary text-foreground text-[11px]">
+                <span className="size-1.5 rounded-xs bg-primary" />
+                Two-tier architecture: Gym Console &amp; Platform Super Admin
+              </span>
             </div>
           </div>
 
           {/* Interactive Live SaaS Dashboard Simulation Frame */}
-          <div id="demo" className="max-w-5xl mx-auto rounded-2xl p-2 bg-gradient-to-b from-border to-border/40 border border-border shadow-2xl text-left mt-10">
-            <div className="rounded-xl bg-card border border-border overflow-hidden">
+          <div id="demo" className="max-w-5xl mx-auto rounded-sm p-2 bg-gradient-to-b from-border to-border/40 border border-border shadow-2xl text-left mt-10">
+            <div className="rounded-xs bg-card border border-border overflow-hidden">
               {/* Mockup Header Bar */}
               <div className="flex items-center justify-between px-4 py-3 bg-surface-2 border-b border-border">
                 <div className="flex items-center gap-2">
@@ -489,6 +483,47 @@ export const LandingPage: React.FC = () => {
                 <a href="#/login">Contact Sales</a>
               </Button>
             </Card>
+          </div>
+        </section>
+
+        {/* FAQ Section with shadcn Accordion */}
+        <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 border-t border-border/50 w-full">
+          <div className="text-center mb-10">
+            <p className="text-xs font-mono font-bold uppercase tracking-wider text-primary">
+              Common Questions
+            </p>
+            <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-foreground mt-1">
+              Frequently Asked Questions
+            </h2>
+          </div>
+
+          <div className="glass-card p-6 rounded-sm shadow-xs">
+            <Accordion defaultExpandedKeys={["faq-1"]}>
+              <AccordionItem id="faq-1">
+                <AccordionTrigger>What are the primary login portals in GymTeq?</AccordionTrigger>
+                <AccordionContent>
+                  GymTeq features a clean two-tier architecture: <strong>Gym Login</strong> for gym owners/administrators to manage their members, packages, attendance, and revenue; and <strong>Super Admin</strong> for platform administration and onboarding new gym tenants.
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem id="faq-2">
+                <AccordionTrigger>How does the automated WhatsApp receipt feature work?</AccordionTrigger>
+                <AccordionContent>
+                  When a payment or membership renewal is logged, GymTeq generates an instant pre-filled WhatsApp link with the member's receipt number, plan details, and transaction amount, allowing front desks to send official receipts with one tap.
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem id="faq-3">
+                <AccordionTrigger>How is tenant data secured between different gyms?</AccordionTrigger>
+                <AccordionContent>
+                  Every gym tenant has strict logical isolation with Foreign Key constraints and tenant context middleware on Cloudflare Workers and D1 database. A gym owner can never access another facility's records.
+                </AccordionContent>
+              </AccordionItem>
+              <AccordionItem id="faq-4">
+                <AccordionTrigger>Can I customize membership packages and renewal cycles?</AccordionTrigger>
+                <AccordionContent>
+                  Yes! You can configure custom packages (Monthly, Quarterly, Half-Yearly, Annual), set custom admission fees, and record partial or full dues with flexible payment modes (UPI, Cash, Card, Net Banking).
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
         </section>
       </main>

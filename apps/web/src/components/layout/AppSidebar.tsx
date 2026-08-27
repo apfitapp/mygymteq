@@ -70,14 +70,14 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ isOpen, onClose }) => {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[var(--sidebar-w)] flex-col border-r border-border bg-card transition-transform duration-200 md:static md:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[var(--sidebar-w)] flex-col border-r border-border/80 bg-card/95 backdrop-blur-md transition-transform duration-200 md:static md:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Brand header */}
         <div className="flex h-[var(--header-h)] items-center justify-between border-b border-border px-5">
           <a href="#/dashboard" className="flex items-center gap-2.5 min-w-0">
-            <div className="size-8 rounded-lg bg-primary text-primary-foreground flex items-center justify-center font-bold shrink-0 shadow-xs">
+            <div className="size-8 rounded-xs bg-primary text-primary-foreground flex items-center justify-center font-bold shrink-0 shadow-sm shadow-primary/20">
               <Dumbbell className="size-4" />
             </div>
             <div className="min-w-0 flex-1">
@@ -85,7 +85,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ isOpen, onClose }) => {
                 {gym?.name || 'GymTeq'}
               </p>
               <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-1.5 py-0.2 rounded-full bg-ok/10 text-ok border border-ok/20">
+                <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-1.5 py-0.2 rounded-xs bg-ok/10 text-ok border border-ok/20">
                   <span className="size-1.5 rounded-full bg-ok shrink-0"></span>
                   Active Gym
                 </span>
@@ -96,7 +96,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ isOpen, onClose }) => {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md p-1 text-muted-foreground hover:text-foreground md:hidden"
+            className="rounded-xs p-1 text-muted-foreground hover:text-foreground md:hidden"
             aria-label="Close sidebar"
           >
             <X className="size-5" />
@@ -121,15 +121,15 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ isOpen, onClose }) => {
                       key={item.key}
                       href={item.href}
                       onClick={() => onClose()}
-                      className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all duration-150 select-none ${
+                      className={`flex items-center gap-3 px-3 py-2 rounded-xs text-xs font-medium transition-all duration-150 select-none ${
                         isActive
-                          ? 'bg-primary/10 text-primary font-bold shadow-xs'
+                          ? 'bg-primary/15 text-primary font-bold shadow-xs border border-primary/20'
                           : 'text-foreground/80 hover:bg-secondary hover:text-foreground'
                       }`}
                     >
                       <Icon className="size-4 shrink-0" />
                       <span className="truncate">{item.label}</span>
-                      {isActive && <span className="ml-auto size-1.5 rounded-full bg-primary" />}
+                      {isActive && <span className="ml-auto size-1.5 rounded-xs bg-primary" />}
                     </a>
                   );
                 })}
@@ -140,8 +140,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ isOpen, onClose }) => {
 
         {/* Sidebar footer */}
         <div className="border-t border-border p-3">
-          <div className="flex items-center gap-3 p-2 rounded-lg bg-surface-2 border border-border">
-            <div className="size-7 rounded-md bg-foreground text-background flex items-center justify-center text-xs font-mono font-bold shrink-0">
+          <div className="flex items-center gap-3 p-2 rounded-xs bg-surface-2 border border-border">
+            <div className="size-7 rounded-xs bg-foreground text-background flex items-center justify-center text-xs font-mono font-bold shrink-0">
               {user?.name?.slice(0, 1) || 'U'}
             </div>
             <div className="min-w-0 flex-1">

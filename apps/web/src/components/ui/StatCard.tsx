@@ -26,7 +26,7 @@ export const StatCard: React.FC<StatCardProps> = ({
       : 'border-border';
 
   return (
-    <Card className={`shadow-xs ${borderClass}`}>
+    <Card className={`glass-card shadow-xs rounded-sm ${borderClass}`}>
       <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
         <CardDescription className="text-[11px] font-mono font-bold uppercase tracking-wider">
           {title}

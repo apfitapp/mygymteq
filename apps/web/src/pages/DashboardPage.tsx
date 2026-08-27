@@ -16,6 +16,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { GymAnalyticsCharts } from '@/components/dashboard/GymAnalyticsCharts';
+import { FinancialPacingGauge } from '@/components/dashboard/FinancialPacingGauge';
+import { RetentionChurnRadar } from '@/components/dashboard/RetentionChurnRadar';
+import { RenewalRecoveryCenter } from '@/components/dashboard/RenewalRecoveryCenter';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 
@@ -77,11 +81,11 @@ export const DashboardPage: React.FC = () => {
       {isLoading ? (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
           {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-28 rounded-xl" />
+            <Skeleton key={i} className="h-28 rounded-sm" />
           ))}
         </div>
       ) : error ? (
-        <div className="p-4 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive text-xs font-medium">
+        <div className="p-4 rounded-sm border border-destructive/30 bg-destructive/10 text-destructive text-xs font-medium">
           Failed to load dashboard metrics: {(error as any).message}
         </div>
       ) : (
@@ -116,11 +120,25 @@ export const DashboardPage: React.FC = () => {
           />
         </div>
       )}
+      {/* Financial Target Pacing & Dues Breakdown */}
+      <FinancialPacingGauge
+        currentRevenue={(metrics?.monthlyRevenue || 0) / 100}
+        pendingDues={(metrics?.pendingDues || 0) / 100}
+      />
+
+      {/* Visual Analytics & Radar Charts */}
+      <GymAnalyticsCharts />
+
+      {/* Retention Churn Radar & WhatsApp Renewal Queue (2 Columns) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <RetentionChurnRadar />
+        <RenewalRecoveryCenter />
+      </div>
 
       {/* Two Columns: Expiring Memberships & Recent Collections */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Expiring Memberships */}
-        <Card className="border-border shadow-xs bg-card">
+        <Card className="glass-card shadow-xs rounded-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border">
             <div>
               <CardTitle className="font-display text-base">Expiring Memberships</CardTitle>
@@ -175,7 +193,7 @@ export const DashboardPage: React.FC = () => {
         </Card>
 
         {/* Recent Collections */}
-        <Card className="border-border shadow-xs bg-card">
+        <Card className="glass-card shadow-xs rounded-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border">
             <div>
               <CardTitle className="font-display text-base">Recent Collections</CardTitle>

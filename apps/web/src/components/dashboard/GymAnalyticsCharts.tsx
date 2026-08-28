@@ -1,10 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Radar,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
   AreaChart,
   Area,
   XAxis,
@@ -14,197 +9,162 @@ import {
   Bar,
   ResponsiveContainer,
   Tooltip,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { ChartContainer, ChartTooltip, type ChartConfig } from '@/components/ui/chart';
-import { TrendingUp, Users, Zap, Clock, ShieldCheck } from 'lucide-react';
+import { TrendingUp, Users, CalendarCheck, Tag, Info } from 'lucide-react';
 
-// Radar Chart Data: Peak Capacity & Utilization
-const peakHoursData = [
-  { zone: '6am - 8am (Morning Cardio)', current: 85, capacity: 100, fullMark: 100 },
-  { zone: '8am - 10am (HIIT & Spin)', current: 92, capacity: 100, fullMark: 100 },
-  { zone: '12pm - 2pm (Lunch Express)', current: 48, capacity: 100, fullMark: 100 },
-  { zone: '4pm - 6pm (Personal Training)', current: 78, capacity: 100, fullMark: 100 },
-  { zone: '6pm - 8pm (Prime Strength)', current: 96, capacity: 100, fullMark: 100 },
-  { zone: '8pm - 10pm (Night Conditioning)', current: 64, capacity: 100, fullMark: 100 },
-];
+interface GymAnalyticsChartsProps {
+  weeklyAttendance?: { day: string; date: string; count: number; avg: number }[];
+  monthlyRevenueTrend?: { month: string; revenue: number; renewals: number; newJoins: number }[];
+  planDistribution?: { name: string; memberCount: number; revenue: number }[];
+}
 
-const radarConfig = {
-  current: {
-    label: 'Current Occupancy %',
-    color: 'var(--accent)',
-  },
-  capacity: {
-    label: 'Max Safe Capacity %',
-    color: 'var(--muted)',
-  },
-} satisfies ChartConfig;
+const PIE_COLORS = ['#00C96E', '#3B82F6', '#F59E0B', '#EC4899', '#8B5CF6', '#14B8A6'];
 
-// Revenue & Collections Trend Data
-const monthlyRevenueData = [
-  { month: 'Sep', revenue: 145000, target: 120000, renewals: 95000, newJoins: 50000 },
-  { month: 'Oct', revenue: 168000, target: 140000, renewals: 110000, newJoins: 58000 },
-  { month: 'Nov', revenue: 195000, target: 160000, renewals: 125000, newJoins: 70000 },
-  { month: 'Dec', revenue: 220000, target: 180000, renewals: 140000, newJoins: 80000 },
-  { month: 'Jan', revenue: 278000, target: 220000, renewals: 175000, newJoins: 103000 },
-  { month: 'Feb', revenue: 294000, target: 240000, renewals: 188000, newJoins: 106000 },
-];
+export const GymAnalyticsCharts: React.FC<GymAnalyticsChartsProps> = ({
+  weeklyAttendance = [],
+  monthlyRevenueTrend = [],
+  planDistribution = [],
+}) => {
+  const hasRevenueData = monthlyRevenueTrend.some((d) => (d.revenue || 0) > 0);
+  const hasAttendanceData = weeklyAttendance.some((d) => (d.count || 0) > 0);
+  const hasPlanData = planDistribution.some((p) => (p.memberCount || 0) > 0);
 
-const revenueConfig = {
-  revenue: {
-    label: 'Total Collected (₹)',
-    color: 'var(--accent)',
-  },
-  target: {
-    label: 'Monthly Target (₹)',
-    color: 'var(--ink-2)',
-  },
-  renewals: {
-    label: 'Renewals (₹)',
-    color: 'var(--ok)',
-  },
-  newJoins: {
-    label: 'New Enrollments (₹)',
-    color: 'var(--accent-strong)',
-  },
-} satisfies ChartConfig;
+  const totalMonthlyRevenue = monthlyRevenueTrend.length > 0
+    ? monthlyRevenueTrend[monthlyRevenueTrend.length - 1]?.revenue || 0
+    : 0;
 
-// Weekly Attendance Footfall Data
-const weeklyAttendanceData = [
-  { day: 'Mon', count: 184, avg: 160 },
-  { day: 'Tue', count: 172, avg: 155 },
-  { day: 'Wed', count: 165, avg: 150 },
-  { day: 'Thu', count: 178, avg: 155 },
-  { day: 'Fri', count: 192, avg: 165 },
-  { day: 'Sat', count: 215, avg: 180 },
-  { day: 'Sun', count: 130, avg: 120 },
-];
-
-const attendanceConfig = {
-  count: {
-    label: "Today's Visits",
-    color: 'var(--accent)',
-  },
-  avg: {
-    label: '30-Day Average',
-    color: 'var(--muted)',
-  },
-} satisfies ChartConfig;
-
-export const GymAnalyticsCharts: React.FC = () => {
-  const [selectedRange, setSelectedRange] = useState<'6m' | '1y'>('6m');
+  const totalWeeklyVisits = weeklyAttendance.reduce((sum, d) => sum + (d.count || 0), 0);
+  const busiestDay = [...weeklyAttendance].sort((a, b) => (b.count || 0) - (a.count || 0))[0];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
       
-      {/* 1. Radar Chart: Floor Capacity & Peak Hour Radar (5 Cols) */}
-      <Card className="lg:col-span-5 rounded-xl border border-[var(--line)] bg-[var(--surface)] shadow-sm flex flex-col justify-between overflow-hidden">
+      {/* 1. Plan Distribution / Membership Health (5 Cols) */}
+      <Card className="lg:col-span-5 rounded-xl border border-border bg-card shadow-sm flex flex-col justify-between overflow-hidden">
         <CardHeader className="p-5 pb-2">
           <div className="flex items-center justify-between gap-2">
             <div className="flex flex-col gap-0.5">
-              <CardTitle className="font-display text-base font-bold text-[var(--ink)] flex items-center gap-2">
-                <span>Facility Peak Hour Radar</span>
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-[var(--accent-soft)] text-[var(--accent-strong)] border-[var(--accent)]/30 font-mono font-bold">LIVE</Badge>
+              <CardTitle className="font-display text-base font-bold text-foreground flex items-center gap-2">
+                <span>Plan Enrollment Distribution</span>
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-primary/10 text-primary border-primary/30 font-mono font-bold">
+                  ACTIVE
+                </Badge>
               </CardTitle>
-              <CardDescription className="text-xs text-[var(--muted)]">
-                Real-time occupancy across major time slots
+              <CardDescription className="text-xs text-muted-foreground">
+                Active member volume across catalog packages
               </CardDescription>
             </div>
-            <div className="size-8 rounded-lg bg-[var(--accent-soft)] text-[var(--accent-strong)] flex items-center justify-center shrink-0">
-              <Clock className="size-4" />
+            <div className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
+              <Tag className="size-4" />
             </div>
           </div>
         </CardHeader>
 
-        <CardContent className="p-5 pt-0 flex flex-col items-center justify-center">
-          <div className="w-full h-64 sm:h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <RadarChart cx="50%" cy="50%" outerRadius="75%" data={peakHoursData}>
-                <PolarGrid stroke="var(--line-strong)" strokeDasharray="3 3" opacity={0.6} />
-                <PolarAngleAxis
-                  dataKey="zone"
-                  tick={{ fill: 'var(--ink-2)', fontSize: 10, fontWeight: 500 }}
-                />
-                <PolarRadiusAxis
-                  angle={30}
-                  domain={[0, 100]}
-                  tick={{ fill: 'var(--muted)', fontSize: 9 }}
-                  stroke="var(--line)"
-                />
-                <Radar
-                  name="Max Capacity"
-                  dataKey="capacity"
-                  stroke="var(--line-strong)"
-                  fill="var(--surface-2)"
-                  fillOpacity={0.3}
-                />
-                <Radar
-                  name="Current Occupancy %"
-                  dataKey="current"
-                  stroke="var(--accent)"
-                  strokeWidth={2.5}
-                  fill="var(--accent)"
-                  fillOpacity={0.25}
-                />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const data = payload[0].payload;
-                      return (
-                        <div className="rounded-lg border border-[var(--line)] bg-[var(--surface)] p-2.5 shadow-md text-xs">
-                          <p className="font-bold text-[var(--ink)]">{data.zone}</p>
-                          <p className="font-mono text-[var(--accent-strong)] font-semibold mt-1">
-                            Occupancy: {data.current}% ({data.current >= 90 ? '🔥 High Peak' : data.current >= 65 ? '⚡ Moderate' : '✅ Open'})
-                          </p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-              </RadarChart>
-            </ResponsiveContainer>
-          </div>
+        <CardContent className="p-5 pt-0 flex flex-col items-center justify-center flex-1">
+          {!hasPlanData ? (
+            <div className="w-full h-64 flex flex-col items-center justify-center text-center p-4">
+              <div className="size-10 rounded-full bg-secondary text-muted-foreground flex items-center justify-center mb-2">
+                <Tag className="size-5" />
+              </div>
+              <p className="text-xs font-semibold text-foreground">No Plan Subscriptions Yet</p>
+              <p className="text-[11px] text-muted-foreground max-w-xs mt-1">
+                Active plans and their member distributions will be displayed here as members enroll.
+              </p>
+            </div>
+          ) : (
+            <div className="w-full flex flex-col">
+              <div className="w-full h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={planDistribution}
+                      dataKey="memberCount"
+                      nameKey="name"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={75}
+                      paddingAngle={3}
+                    >
+                      {planDistribution.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="rounded-lg border border-border bg-card p-2.5 shadow-md text-xs">
+                              <p className="font-bold text-foreground">{data.name}</p>
+                              <p className="font-mono text-primary font-semibold mt-0.5">
+                                {data.memberCount} active member{data.memberCount !== 1 ? 's' : ''}
+                              </p>
+                              <p className="text-[10px] font-mono text-muted-foreground">
+                                Total: ₹{(data.revenue || 0).toLocaleString('en-IN')}
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
 
-          <div className="grid grid-cols-3 gap-2 w-full pt-3 border-t border-[var(--line)] text-center text-xs">
-            <div className="flex flex-col">
-              <span className="text-[10px] text-[var(--muted)] font-mono uppercase">Peak Window</span>
-              <span className="font-bold text-[var(--ink)] text-xs mt-0.5">6pm - 8pm</span>
+              {/* Plan legend list */}
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border">
+                {planDistribution.slice(0, 4).map((plan, i) => (
+                  <div key={plan.name} className="flex items-center gap-1.5 min-w-0">
+                    <span
+                      className="size-2 rounded-full shrink-0"
+                      style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
+                    />
+                    <span className="text-[11px] text-foreground truncate font-medium">{plan.name}</span>
+                    <span className="text-[10px] text-muted-foreground font-mono ml-auto shrink-0">
+                      {plan.memberCount}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="flex flex-col border-x border-[var(--line)]">
-              <span className="text-[10px] text-[var(--muted)] font-mono uppercase">Current Util.</span>
-              <span className="font-mono font-bold text-[var(--ok)] text-xs mt-0.5">74.8%</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-[10px] text-[var(--muted)] font-mono uppercase">Trainer Ratio</span>
-              <span className="font-mono font-bold text-[var(--ink)] text-xs mt-0.5">1 : 14</span>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
       {/* 2. Area/Bar Tabbed Performance Charts (7 Cols) */}
-      <Card className="lg:col-span-7 rounded-xl border border-[var(--line)] bg-[var(--surface)] shadow-sm flex flex-col justify-between overflow-hidden">
+      <Card className="lg:col-span-7 rounded-xl border border-border bg-card shadow-sm flex flex-col justify-between overflow-hidden">
         <Tabs defaultValue="revenue" className="w-full flex flex-col h-full">
           <CardHeader className="p-5 pb-2">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex flex-col gap-0.5">
-                <CardTitle className="font-display text-base font-bold text-[var(--ink)]">
-                  Financial & Member Growth Trajectory
+                <CardTitle className="font-display text-base font-bold text-foreground">
+                  Performance &amp; Attendance Trends
                 </CardTitle>
-                <CardDescription className="text-xs text-[var(--muted)]">
-                  Monthly recurring collections, target pacing, and daily visits
+                <CardDescription className="text-xs text-muted-foreground">
+                  Real database calculations for collections and daily visits
                 </CardDescription>
               </div>
 
-              <TabsList className="bg-[var(--surface-2)] border border-[var(--line)] p-0.5 h-8">
-                <TabsTrigger value="revenue" className="text-xs px-3 py-1 font-semibold data-[state=active]:bg-[var(--surface)] data-[state=active]:text-[var(--ink)] data-[state=active]:shadow-xs">
-                  Revenue
+              <TabsList className="bg-secondary border border-border p-0.5 h-8">
+                <TabsTrigger
+                  value="revenue"
+                  className="text-xs px-3 py-1 font-semibold data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-xs"
+                >
+                  Collections (6 Mo)
                 </TabsTrigger>
-                <TabsTrigger value="attendance" className="text-xs px-3 py-1 font-semibold data-[state=active]:bg-[var(--surface)] data-[state=active]:text-[var(--ink)] data-[state=active]:shadow-xs">
-                  Footfall
+                <TabsTrigger
+                  value="attendance"
+                  className="text-xs px-3 py-1 font-semibold data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-xs"
+                >
+                  Visits (7 Days)
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -213,120 +173,147 @@ export const GymAnalyticsCharts: React.FC = () => {
           <CardContent className="p-5 pt-2 flex-1 flex flex-col justify-between">
             {/* Tab 1: Revenue Area Chart */}
             <TabsContent value="revenue" className="mt-0 space-y-4">
-              <div className="w-full h-56 sm:h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={monthlyRevenueData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.35} />
-                        <stop offset="95%" stopColor="var(--accent)" stopOpacity={0.0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
-                    <XAxis
-                      dataKey="month"
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: 'var(--muted)', fontSize: 11, fontWeight: 500 }}
-                    />
-                    <YAxis
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: 'var(--muted)', fontSize: 10 }}
-                      tickFormatter={(val) => `₹${val / 1000}k`}
-                    />
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          const d = payload[0].payload;
-                          return (
-                            <div className="rounded-lg border border-[var(--line)] bg-[var(--surface)] p-3 shadow-lg text-xs flex flex-col gap-1">
-                              <p className="font-display font-bold text-[var(--ink)]">{d.month} Collection</p>
-                              <p className="font-mono font-bold text-[var(--ok)] text-sm">₹{d.revenue.toLocaleString('en-IN')}</p>
-                              <div className="pt-1 border-t border-[var(--line)] flex justify-between gap-4 text-[10px] text-[var(--muted)] font-mono">
-                                <span>Renewals: ₹{d.renewals.toLocaleString('en-IN')}</span>
-                                <span>New: ₹{d.newJoins.toLocaleString('en-IN')}</span>
-                              </div>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="revenue"
-                      stroke="var(--accent)"
-                      strokeWidth={3}
-                      fillOpacity={1}
-                      fill="url(#revGrad)"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="flex items-center justify-between pt-3 border-t border-[var(--line)] text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="size-2 rounded-full bg-[var(--accent)]"></div>
-                  <span className="text-[var(--ink-2)] font-medium">Monthly Collections:</span>
-                  <strong className="font-mono text-[var(--ink)]">₹2,94,000</strong>
+              {!hasRevenueData ? (
+                <div className="w-full h-56 sm:h-64 flex flex-col items-center justify-center text-center p-4 border border-dashed border-border rounded-lg">
+                  <TrendingUp className="size-8 text-muted-foreground opacity-50 mb-2" />
+                  <p className="text-xs font-semibold text-foreground">No Collection History Recorded</p>
+                  <p className="text-[11px] text-muted-foreground max-w-xs mt-0.5">
+                    Payments recorded through front desk billing will automatically track here.
+                  </p>
                 </div>
-                <div className="flex items-center gap-1.5 text-[var(--ok)] font-mono font-bold">
-                  <TrendingUp className="size-3.5" />
-                  <span>+18.4% MoM growth</span>
+              ) : (
+                <div className="w-full h-56 sm:h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={monthlyRevenueTrend} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.35} />
+                          <stop offset="95%" stopColor="var(--primary)" stopOpacity={0.0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                      <XAxis
+                        dataKey="month"
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontWeight: 500 }}
+                      />
+                      <YAxis
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fill: 'var(--muted-foreground)', fontSize: 10 }}
+                        tickFormatter={(val) => `₹${val >= 1000 ? `${val / 1000}k` : val}`}
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const d = payload[0].payload;
+                            return (
+                              <div className="rounded-lg border border-border bg-card p-3 shadow-lg text-xs flex flex-col gap-1">
+                                <p className="font-display font-bold text-foreground">{d.month} Collection</p>
+                                <p className="font-mono font-bold text-ok text-sm">₹{d.revenue.toLocaleString('en-IN')}</p>
+                                <div className="pt-1 border-t border-border flex justify-between gap-4 text-[10px] text-muted-foreground font-mono">
+                                  <span>Renewals: ₹{d.renewals.toLocaleString('en-IN')}</span>
+                                  <span>New: ₹{d.newJoins.toLocaleString('en-IN')}</span>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="revenue"
+                        stroke="var(--primary)"
+                        strokeWidth={2.5}
+                        fillOpacity={1}
+                        fill="url(#revGrad)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-3 border-t border-border text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="size-2 rounded-full bg-primary"></div>
+                  <span className="text-muted-foreground font-medium">Latest Month:</span>
+                  <strong className="font-mono text-foreground">₹{totalMonthlyRevenue.toLocaleString('en-IN')}</strong>
+                </div>
+                <div className="flex items-center gap-1 text-muted-foreground text-[11px] font-mono">
+                  <span>6-Month Trend Overview</span>
                 </div>
               </div>
             </TabsContent>
 
             {/* Tab 2: Attendance Weekly Bar Chart */}
             <TabsContent value="attendance" className="mt-0 space-y-4">
-              <div className="w-full h-56 sm:h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={weeklyAttendanceData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
-                    <XAxis
-                      dataKey="day"
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: 'var(--muted)', fontSize: 11, fontWeight: 500 }}
-                    />
-                    <YAxis
-                      tickLine={false}
-                      axisLine={false}
-                      tick={{ fill: 'var(--muted)', fontSize: 10 }}
-                    />
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          const d = payload[0].payload;
-                          return (
-                            <div className="rounded-lg border border-[var(--line)] bg-[var(--surface)] p-2.5 shadow-md text-xs">
-                              <p className="font-bold text-[var(--ink)]">{d.day} Check-Ins</p>
-                              <p className="font-mono text-[var(--accent-strong)] font-semibold mt-0.5">{d.count} Members</p>
-                              <p className="text-[10px] text-[var(--muted)] font-mono mt-0.5">30-day Avg: {d.avg}</p>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                    <Bar
-                      dataKey="count"
-                      fill="var(--accent)"
-                      radius={[4, 4, 0, 0]}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="flex items-center justify-between pt-3 border-t border-[var(--line)] text-xs">
-                <div className="flex items-center gap-2">
-                  <div className="size-2 rounded-full bg-[var(--accent)]"></div>
-                  <span className="text-[var(--ink-2)] font-medium">Busiest Day:</span>
-                  <strong className="text-[var(--ink)]">Saturday (215 check-ins)</strong>
+              {!hasAttendanceData ? (
+                <div className="w-full h-56 sm:h-64 flex flex-col items-center justify-center text-center p-4 border border-dashed border-border rounded-lg">
+                  <CalendarCheck className="size-8 text-muted-foreground opacity-50 mb-2" />
+                  <p className="text-xs font-semibold text-foreground">No Attendance Logged in Past 7 Days</p>
+                  <p className="text-[11px] text-muted-foreground max-w-xs mt-0.5">
+                    Member check-ins from the fast kiosk or QR scanner will plot daily footfall here.
+                  </p>
                 </div>
-                <div className="flex items-center gap-1 text-[var(--muted)] font-mono text-[11px]">
-                  <span>Weekly Avg: 177 / day</span>
+              ) : (
+                <div className="w-full h-56 sm:h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={weeklyAttendance} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                      <XAxis
+                        dataKey="day"
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fill: 'var(--muted-foreground)', fontSize: 11, fontWeight: 500 }}
+                      />
+                      <YAxis
+                        tickLine={false}
+                        axisLine={false}
+                        tick={{ fill: 'var(--muted-foreground)', fontSize: 10 }}
+                      />
+                      <Tooltip
+                        content={({ active, payload }) => {
+                          if (active && payload && payload.length) {
+                            const d = payload[0].payload;
+                            return (
+                              <div className="rounded-lg border border-border bg-card p-2.5 shadow-md text-xs">
+                                <p className="font-bold text-foreground">{d.day} ({d.date})</p>
+                                <p className="font-mono text-primary font-semibold mt-0.5">
+                                  {d.count} Check-in{d.count !== 1 ? 's' : ''}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                                  30-day Daily Avg: {d.avg}
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Bar
+                        dataKey="count"
+                        fill="var(--primary)"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between pt-3 border-t border-border text-xs">
+                <div className="flex items-center gap-2">
+                  <div className="size-2 rounded-full bg-primary"></div>
+                  <span className="text-muted-foreground font-medium">Busiest Day:</span>
+                  <strong className="text-foreground">
+                    {busiestDay && busiestDay.count > 0
+                      ? `${busiestDay.day} (${busiestDay.count} visits)`
+                      : 'None yet'}
+                  </strong>
+                </div>
+                <div className="flex items-center gap-1 text-muted-foreground font-mono text-[11px]">
+                  <span>Total 7-Day Visits: {totalWeeklyVisits}</span>
                 </div>
               </div>
             </TabsContent>

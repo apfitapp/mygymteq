@@ -10,7 +10,7 @@ test.describe('Gym SaaS — Super Admin Portal', () => {
         JSON.stringify({
           id: 'usr_superadmin',
           name: 'Platform Super Admin',
-          email: 'superadmin@mygymteq.com',
+          email: 'superadmin@gymtech.app',
           role: 'SUPER_ADMIN',
           gymId: null,
         })
@@ -25,7 +25,7 @@ test.describe('Gym SaaS — Super Admin Portal', () => {
           user: {
             id: 'usr_superadmin',
             name: 'Platform Super Admin',
-            email: 'superadmin@mygymteq.com',
+            email: 'superadmin@gymtech.app',
             role: 'SUPER_ADMIN',
             gymId: null,
           },
@@ -116,6 +116,8 @@ test.describe('Gym SaaS — Super Admin Portal', () => {
 
     await page.click('button[type="submit"]');
 
+    // Password is auto-generated when left blank; success banner + credentials are shown
     await expect(page.getByText(/New gym onboarded/i)).toBeVisible();
+    await expect(page.getByText(/suresh@metrofit\.in/)).toBeVisible();
   });
 });

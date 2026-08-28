@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft,
   Calendar,
@@ -12,6 +12,9 @@ import {
   Clock,
   CheckCircle2,
   RefreshCw,
+  Pencil,
+  Snowflake,
+  Play,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
@@ -20,15 +23,36 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { GymStatusBadge } from '@/components/ui/GymStatusBadge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { EditMemberDialog } from '@/components/members/EditMemberDialog';
+import { useToast } from '@/components/ui/toast';
+import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
 
 export const MemberDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const canManage = user?.role === 'OWNER' || user?.role === 'MANAGER';
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', id],
     queryFn: () => api.getMemberDetail(id!),
     enabled: !!id,
+  });
+
+  const freezeMutation = useMutation({
+    mutationFn: (action: 'freeze' | 'unfreeze') =>
+      action === 'freeze' ? api.freezeMember(id!) : api.unfreezeMember(id!),
+    onSuccess: (res) => {
+      toast('success', res.status === 'FROZEN' ? 'Membership paused' : 'Membership resumed', res.message);
+      queryClient.invalidateQueries({ queryKey: ['member', id] });
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+    },
+    onError: (err: any) => {
+      toast('error', 'Freeze action failed', err.message);
+    },
   });
 
   const member = data?.member;
@@ -62,8 +86,8 @@ export const MemberDetailPage: React.FC = () => {
     );
   }
 
-  const initials = `${member.first_name[0]}${member.last_name ? member.last_name[0] : ''}`.toUpperCase();
-  const cleanPhone = member.phone.replace(/\D/g, '');
+  const initials = `${member.first_name?.[0] || 'M'}${member.last_name ? member.last_name[0] : ''}`.toUpperCase();
+  const cleanPhone = (member.phone || '').replace(/\D/g, '');
   const waPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
   const whatsappChatUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(`Hello ${member.first_name}, greeting from the gym!`)}`;
 
@@ -105,11 +129,46 @@ export const MemberDetailPage: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsEditOpen(true)}
+                className="text-xs h-9 font-semibold gap-1.5 border-border hover:bg-secondary"
+              >
+                <Pencil className="size-3.5" />
+                <span>Edit Profile</span>
+              </Button>
+
               <Button asChild variant="outline" size="sm" className="text-xs h-9 text-[#25D366] hover:text-[#20BA5A] border-[#25D366]/30">
                 <a href={whatsappChatUrl} target="_blank" rel="noopener noreferrer">
                   <MessageCircle className="size-4 mr-1.5 fill-current" /> WhatsApp
                 </a>
               </Button>
+
+              {canManage && member.status !== 'CANCELLED' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={freezeMutation.isPending}
+                  onClick={() => freezeMutation.mutate(member.status === 'FROZEN' ? 'unfreeze' : 'freeze')}
+                  className={`text-xs h-9 font-semibold gap-1.5 ${
+                    member.status === 'FROZEN'
+                      ? 'border-ok/40 text-ok hover:bg-ok/10'
+                      : 'border-warn/40 text-warn hover:bg-warn/10'
+                  }`}
+                >
+                  {member.status === 'FROZEN' ? (
+                    <>
+                      <Play className="size-3.5" /> Resume
+                    </>
+                  ) : (
+                    <>
+                      <Snowflake className="size-3.5" /> Freeze
+                    </>
+                  )}
+                </Button>
+              )}
+
               <Button asChild size="sm" className="bg-primary text-primary-foreground font-bold text-xs h-9">
                 <a href={`#/members/${member.id}/renew`}>
                   <RefreshCw className="size-3.5 mr-1.5" /> Renew Plan
@@ -118,6 +177,13 @@ export const MemberDetailPage: React.FC = () => {
             </div>
           </div>
         </Card>
+
+        {/* Edit Member Dialog */}
+        <EditMemberDialog
+          member={member}
+          open={isEditOpen}
+          onOpenChange={setIsEditOpen}
+        />
 
         {/* Details Tabs */}
         <Tabs defaultValue="overview" className="w-full">

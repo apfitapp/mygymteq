@@ -19,12 +19,27 @@ import {
 export const LoginRequestSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
+  turnstileToken: z.string().optional(),
 });
 export type LoginRequest = z.infer<typeof LoginRequestSchema>;
 
 export interface LoginResponse {
   token: string;
   user: SessionUser;
+  gym?: Gym | null;
+}
+
+export const MemberLoginRequestSchema = z.object({
+  identifier: z.string().min(3, 'Phone number or member code is required'),
+  codeOrPin: z.string().min(1, 'Member code or verification credential is required'),
+  turnstileToken: z.string().optional(),
+});
+export type MemberLoginRequest = z.infer<typeof MemberLoginRequestSchema>;
+
+export interface MemberLoginResponse {
+  token: string;
+  member: Member;
+  activeMembership?: Membership | null;
   gym?: Gym | null;
 }
 
@@ -72,6 +87,7 @@ export const UpdateMemberRequestSchema = z.object({
   email: z.string().email().optional().or(z.literal('')),
   gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
   dateOfBirth: z.string().optional(),
+  photoUrl: z.string().optional(),
   address: z.string().optional(),
   emergencyContactName: z.string().optional(),
   emergencyContactPhone: z.string().optional(),
@@ -201,3 +217,104 @@ export const ToggleGymStatusRequestSchema = z.object({
   status: z.enum(['ACTIVE', 'SUSPENDED']),
 });
 export type ToggleGymStatusRequest = z.infer<typeof ToggleGymStatusRequestSchema>;
+
+// ==========================================
+// 8. BULK EXCEL MIGRATION CONTRACTS
+// ==========================================
+
+export const BulkImportMemberRowSchema = z.object({
+  firstName: z.string().min(1, 'First name is required'),
+  lastName: z.string().optional().default(''),
+  phone: z.string().min(10, 'Valid 10-digit phone required'),
+  email: z.string().email().optional().or(z.literal('')).default(''),
+  gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional().default('MALE'),
+  planName: z.string().optional().default(''),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  paidAmount: z.number().min(0).optional().default(0),
+  dueAmount: z.number().min(0).optional().default(0),
+});
+export type BulkImportMemberRow = z.infer<typeof BulkImportMemberRowSchema>;
+
+export const BulkImportMembersRequestSchema = z.object({
+  members: z.array(BulkImportMemberRowSchema).min(1, 'At least one member record is required'),
+  defaultPlanId: z.string().optional(),
+});
+export type BulkImportMembersRequest = z.infer<typeof BulkImportMembersRequestSchema>;
+
+export interface BulkImportMembersResponse {
+  success: boolean;
+  totalProcessed: number;
+  importedCount: number;
+  skippedCount: number;
+  errors: string[];
+}
+
+// ==========================================
+// 9. FORGOT & RESET PASSWORD CONTRACTS
+// ==========================================
+
+export const ForgotPasswordRequestSchema = z.object({
+  email: z.string().email('Please enter a valid email address'),
+});
+export type ForgotPasswordRequest = z.infer<typeof ForgotPasswordRequestSchema>;
+
+export interface ForgotPasswordResponse {
+  success: boolean;
+  message: string;
+  devResetUrl?: string;
+}
+
+export const ResetPasswordRequestSchema = z.object({
+  token: z.string().min(1, 'Reset token is required'),
+  newPassword: z.string().min(6, 'Password must be at least 6 characters'),
+});
+export type ResetPasswordRequest = z.infer<typeof ResetPasswordRequestSchema>;
+
+export interface ResetPasswordResponse {
+  success: boolean;
+  message: string;
+}
+
+// ==========================================
+// 10. FREEZE / PAUSE MEMBERSHIP CONTRACTS
+// ==========================================
+
+export const FreezeMemberRequestSchema = z.object({
+  reason: z.string().max(200).optional(),
+});
+export type FreezeMemberRequest = z.infer<typeof FreezeMemberRequestSchema>;
+
+export interface FreezeMemberResponse {
+  success: boolean;
+  status: 'FROZEN' | 'ACTIVE';
+  membershipId?: string | null;
+  extendedTo?: number | null;
+  message: string;
+}
+
+// ==========================================
+// 11. PT COLLECTION CONTRACTS
+// ==========================================
+
+export const RecordPtCollectionRequestSchema = z.object({
+  memberId: z.string().min(1, 'Member selection is required'),
+  trainerId: z.string().min(1, 'Trainer selection is required'),
+  sessions: z.number().int().min(0).default(0),
+  amount: z.number().min(1, 'Amount must be greater than 0'),
+  commissionPercentage: z.number().min(0).max(100).default(0),
+  paymentMode: z.enum(['CASH', 'UPI', 'CARD', 'NETBANKING', 'OTHER']).default('CASH'),
+  paymentDate: z.string().optional(),
+  notes: z.string().optional(),
+});
+export type RecordPtCollectionRequest = z.infer<typeof RecordPtCollectionRequestSchema>;
+
+export interface RecordPtCollectionResponse {
+  id: string;
+  commissionAmount: number;
+}
+
+export const SettlePtCommissionRequestSchema = z.object({
+  status: z.enum(['PAID', 'PENDING']),
+});
+export type SettlePtCommissionRequest = z.infer<typeof SettlePtCommissionRequestSchema>;

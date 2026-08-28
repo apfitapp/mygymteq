@@ -5,7 +5,13 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CustomSelect } from '@/components/ui/CustomSelect';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -35,7 +41,7 @@ export const StaffPage: React.FC = () => {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<'MANAGER' | 'STAFF' | 'TRAINER'>('STAFF');
-  const [password, setPassword] = useState('admin123');
+  const [password, setPassword] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -133,7 +139,7 @@ export const StaffPage: React.FC = () => {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="size-8 rounded-lg bg-surface-2 border border-border flex items-center justify-center font-mono font-bold text-xs">
-                          {s.name[0]}
+                          {s.name?.[0] || 'S'}
                         </div>
                         <div className="flex flex-col">
                           <span className="font-semibold text-xs text-foreground">{s.name}</span>
@@ -219,16 +225,16 @@ export const StaffPage: React.FC = () => {
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="staffRole" className="text-xs font-semibold">Role *</Label>
-                <CustomSelect
-                  id="staffRole"
-                  value={role}
-                  onChange={(e) => setRole(e.target.value as any)}
-                  options={[
-                    { value: 'STAFF', label: 'Front Desk / Staff' },
-                    { value: 'TRAINER', label: 'Fitness Trainer' },
-                    { value: 'MANAGER', label: 'Gym Manager' },
-                  ]}
-                />
+                <Select value={role} onValueChange={(val: any) => setRole(val)}>
+                  <SelectTrigger id="staffRole" className="text-xs">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="STAFF">Front Desk / Staff</SelectItem>
+                    <SelectItem value="TRAINER">Fitness Trainer</SelectItem>
+                    <SelectItem value="MANAGER">Gym Manager</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="staffPassword" className="text-xs font-semibold">Initial Password *</Label>

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { SessionUser, Gym, LoginRequest } from '@gym/shared';
+import { useQueryClient } from '@tanstack/react-query';
+import { SessionUser, Gym, LoginRequest } from '@gymtech/shared';
 import { api } from './api';
 
 interface AuthContextType {
@@ -14,6 +15,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const queryClient = useQueryClient();
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('gym_token'));
   const [user, setUser] = useState<SessionUser | null>(() => {
     const saved = localStorage.getItem('gym_user');
@@ -44,6 +46,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.removeItem('gym_token');
         localStorage.removeItem('gym_user');
         localStorage.removeItem('gym_info');
+        queryClient.clear();
         setToken(null);
         setUser(null);
         setGym(null);
@@ -53,9 +56,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     initAuth();
-  }, []);
+  }, [queryClient]);
 
   const login = async (credentials: LoginRequest) => {
+    queryClient.clear();
     const res = await api.login(credentials);
     setToken(res.token);
     setUser(res.user);
@@ -72,6 +76,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('gym_token');
     localStorage.removeItem('gym_user');
     localStorage.removeItem('gym_info');
+    queryClient.clear();
     setToken(null);
     setUser(null);
     setGym(null);

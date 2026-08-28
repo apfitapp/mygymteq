@@ -1,4 +1,4 @@
-import { GymMembershipPlan } from '@gym/shared';
+import { GymMembershipPlan } from '@gymtech/shared';
 
 export class PlanRepository {
   constructor(private db: D1Database, private gymId: string) {}

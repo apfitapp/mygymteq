@@ -5,11 +5,13 @@ import { useAuth } from '@/lib/auth';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireSuperAdmin?: boolean;
+  allowMember?: boolean;
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   requireSuperAdmin = false,
+  allowMember = false,
 }) => {
   const { user, isLoading } = useAuth();
 
@@ -26,6 +28,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Member role isolation: Member accounts can only access member portal
+  if (user.role === 'MEMBER' && !allowMember) {
+    return <Navigate to="/portal" replace />;
   }
 
   if (requireSuperAdmin && user.role !== 'SUPER_ADMIN') {

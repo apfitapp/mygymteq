@@ -211,7 +211,7 @@ test.describe('Gym SaaS — Operations & Member Workflows', () => {
     await codeInput.fill('MEM-1001');
     await page.click('button[type="submit"]');
 
-    await expect(page.getByText(/Check-in recorded/i)).toBeVisible();
-    await expect(page.getByText(/Rahul Sharma/i).first()).toBeVisible();
+    await expect(page.getByText(/Welcome, Rahul Sharma/i)).toBeVisible();
+    await expect(page.getByText(/MEM-1001/i).first()).toBeVisible();
   });
 });

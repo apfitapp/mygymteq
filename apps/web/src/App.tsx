@@ -3,6 +3,7 @@ import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from './lib/theme';
 import { AuthProvider } from './lib/auth';
+import { ToastProvider } from './components/ui/toast';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
 
 import { LandingPage } from './pages/LandingPage';
@@ -19,12 +20,15 @@ import { StaffPage } from './pages/StaffPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { SettingsNotificationsPage } from './pages/SettingsNotificationsPage';
 import { AdminPage } from './pages/AdminPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
+import { MemberPortalPage } from './pages/MemberPortalPage';
+import { PtCollectionsPage } from './pages/PtCollectionsPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       refetchOnWindowFocus: false,
-      retry: 1,
+      staleTime: 1000 * 60 * 2, // 2 minutes
     },
   },
 });
@@ -34,11 +38,13 @@ export const App: React.FC = () => {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <AuthProvider>
+          <ToastProvider>
           <HashRouter>
             <Routes>
               {/* Public Routes */}
               <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
 
               {/* Gym Owner & Staff Routes */}
               <Route
@@ -86,6 +92,14 @@ export const App: React.FC = () => {
                 element={
                   <ProtectedRoute>
                     <PaymentsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/pt-collections"
+                element={
+                  <ProtectedRoute>
+                    <PtCollectionsPage />
                   </ProtectedRoute>
                 }
               />
@@ -140,10 +154,21 @@ export const App: React.FC = () => {
                 }
               />
 
+              {/* Member Self-Service Portal Route */}
+              <Route
+                path="/portal"
+                element={
+                  <ProtectedRoute allowMember={true}>
+                    <MemberPortalPage />
+                  </ProtectedRoute>
+                }
+              />
+
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </HashRouter>
+          </ToastProvider>
         </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>

@@ -5,12 +5,18 @@ import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CustomSelect } from '@/components/ui/CustomSelect';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PhotoCaptureUpload } from '@/components/ui/PhotoCaptureUpload';
 import { api } from '@/lib/api';
-import { CreateMemberResponse } from '@gym/shared';
+import { CreateMemberResponse } from '@gymtech/shared';
 
 export const NewMemberPage: React.FC = () => {
   const { data: plansData, isLoading: plansLoading } = useQuery({
@@ -225,16 +231,16 @@ export const NewMemberPage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="gender" className="text-xs font-semibold">Gender</Label>
-                    <CustomSelect
-                      id="gender"
-                      value={gender}
-                      onChange={(e) => setGender(e.target.value as any)}
-                      options={[
-                        { value: 'MALE', label: 'Male' },
-                        { value: 'FEMALE', label: 'Female' },
-                        { value: 'OTHER', label: 'Other' },
-                      ]}
-                    />
+                    <Select value={gender} onValueChange={(val: any) => setGender(val)}>
+                      <SelectTrigger id="gender" className="text-xs">
+                        <SelectValue placeholder="Select gender" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="MALE">Male</SelectItem>
+                        <SelectItem value="FEMALE">Female</SelectItem>
+                        <SelectItem value="OTHER">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="dateOfBirth" className="text-xs font-semibold">Date of Birth</Label>
@@ -273,17 +279,18 @@ export const NewMemberPage: React.FC = () => {
               <CardContent className="pt-4 flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="planId" className="text-xs font-semibold">Select Membership Package *</Label>
-                  <CustomSelect
-                    id="planId"
-                    required
-                    value={planId}
-                    onChange={(e) => handlePlanChange(e.target.value)}
-                    options={plans.map((p) => ({
-                      value: p.id,
-                      label: `${p.name} (${p.duration_months} mo) — ₹${(p.price / 100).toLocaleString('en-IN')}`,
-                    }))}
-                    placeholder={plansLoading ? 'Loading plans...' : 'Choose package'}
-                  />
+                  <Select value={planId} onValueChange={handlePlanChange}>
+                    <SelectTrigger id="planId" className="text-xs">
+                      <SelectValue placeholder={plansLoading ? 'Loading plans...' : 'Choose package'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {plans.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} ({p.duration_months} mo) — ₹{(p.price / 100).toLocaleString('en-IN')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -317,17 +324,17 @@ export const NewMemberPage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="paymentMode" className="text-xs font-semibold">Payment Mode</Label>
-                    <CustomSelect
-                      id="paymentMode"
-                      value={paymentMode}
-                      onChange={(e) => setPaymentMode(e.target.value as any)}
-                      options={[
-                        { value: 'UPI', label: 'UPI / QR Code' },
-                        { value: 'CASH', label: 'Cash' },
-                        { value: 'CARD', label: 'Debit / Credit Card' },
-                        { value: 'NETBANKING', label: 'Net Banking' },
-                      ]}
-                    />
+                    <Select value={paymentMode} onValueChange={(val: any) => setPaymentMode(val)}>
+                      <SelectTrigger id="paymentMode" className="text-xs">
+                        <SelectValue placeholder="Select mode" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="UPI">UPI / QR Code</SelectItem>
+                        <SelectItem value="CASH">Cash</SelectItem>
+                        <SelectItem value="CARD">Debit / Credit Card</SelectItem>
+                        <SelectItem value="NETBANKING">Net Banking</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="referenceId" className="text-xs font-semibold">Reference ID / Notes</Label>

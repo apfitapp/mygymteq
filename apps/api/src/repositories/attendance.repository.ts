@@ -1,4 +1,4 @@
-import { Attendance, AttendanceMethod } from '@gym/shared';
+import { Attendance, AttendanceMethod } from '@gymtech/shared';
 
 export interface AttendanceListItem extends Attendance {
   first_name: string;

@@ -9,10 +9,21 @@ import {
   ShieldAlert,
   BarChart3,
   Settings,
-  Dumbbell,
   X,
+  LogOut,
+  Trophy,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+
+type NavRole = 'OWNER' | 'MANAGER' | 'STAFF' | 'TRAINER' | 'SUPER_ADMIN' | 'MEMBER';
+
+interface NavItem {
+  key: string;
+  label: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  roles: NavRole[];
+}
 
 interface AppSidebarProps {
   isOpen: boolean;
@@ -21,41 +32,51 @@ interface AppSidebarProps {
 
 export const AppSidebar: React.FC<AppSidebarProps> = ({ isOpen, onClose }) => {
   const location = useLocation();
-  const { gym, user } = useAuth();
+  const { gym, user, logout } = useAuth();
 
-  const navGroups = [
+  const ALL: NavRole[] = ['OWNER', 'MANAGER', 'STAFF', 'TRAINER'];
+  const navGroups: { label: string; items: NavItem[] }[] = [
     {
       label: 'Overview',
-      items: [{ key: 'dashboard', label: 'Dashboard', href: '#/dashboard', icon: LayoutDashboard }],
+      items: [{ key: 'dashboard', label: 'Dashboard', href: '#/dashboard', icon: LayoutDashboard, roles: ALL }],
     },
     {
       label: 'Members',
       items: [
-        { key: 'members', label: 'Member Directory', href: '#/members', icon: Users },
-        { key: 'attendance', label: 'Attendance Desk', href: '#/attendance', icon: CalendarCheck },
+        { key: 'members', label: 'Member Directory', href: '#/members', icon: Users, roles: ['OWNER', 'MANAGER', 'STAFF'] },
+        { key: 'attendance', label: 'Attendance Desk', href: '#/attendance', icon: CalendarCheck, roles: ALL },
       ],
     },
     {
       label: 'Billing',
       items: [
-        { key: 'plans', label: 'Membership Plans', href: '#/plans', icon: Tag },
-        { key: 'payments', label: 'Payments & Dues', href: '#/payments', icon: CreditCard },
+        { key: 'plans', label: 'Membership Plans', href: '#/plans', icon: Tag, roles: ['OWNER', 'MANAGER'] },
+        { key: 'payments', label: 'Payments & Dues', href: '#/payments', icon: CreditCard, roles: ['OWNER', 'MANAGER', 'STAFF'] },
+        { key: 'pt', label: 'PT Collections', href: '#/pt-collections', icon: Trophy, roles: ['OWNER', 'MANAGER', 'TRAINER'] },
       ],
     },
     {
       label: 'Operations',
       items: [
-        { key: 'staff', label: 'Staff & Trainers', href: '#/staff', icon: ShieldAlert },
-        { key: 'reports', label: 'Reports & Insights', href: '#/reports', icon: BarChart3 },
+        { key: 'staff', label: 'Staff & Trainers', href: '#/staff', icon: ShieldAlert, roles: ['OWNER'] },
+        { key: 'reports', label: 'Reports & Insights', href: '#/reports', icon: BarChart3, roles: ['OWNER', 'MANAGER'] },
       ],
     },
     {
       label: 'System',
       items: [
-        { key: 'settings', label: 'Settings', href: '#/settings/notifications', icon: Settings },
+        { key: 'settings', label: 'Settings', href: '#/settings/notifications', icon: Settings, roles: ['OWNER'] },
       ],
     },
   ];
+
+  const role = (user?.role || 'STAFF') as NavRole;
+  const visibleGroups = navGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => item.roles.includes(role)),
+    }))
+    .filter((group) => group.items.length > 0);
 
   const currentPath = location.pathname;
 
@@ -77,12 +98,10 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ isOpen, onClose }) => {
         {/* Brand header */}
         <div className="flex h-[var(--header-h)] items-center justify-between border-b border-border px-5">
           <a href="#/dashboard" className="flex items-center gap-2.5 min-w-0">
-            <div className="size-8 rounded-xs bg-primary text-primary-foreground flex items-center justify-center font-bold shrink-0 shadow-sm shadow-primary/20">
-              <Dumbbell className="size-4" />
-            </div>
+            <img src="/logo.png" alt="GymTech" className="h-8 w-auto rounded-xs shrink-0 shadow-sm" />
             <div className="min-w-0 flex-1">
               <p className="font-display text-sm font-bold text-foreground truncate leading-tight">
-                {gym?.name || 'GymTeq'}
+                {gym?.name || 'GymTech'}
               </p>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-1.5 py-0.2 rounded-xs bg-ok/10 text-ok border border-ok/20">
@@ -105,7 +124,7 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ isOpen, onClose }) => {
 
         {/* Navigation links */}
         <nav className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-5">
-          {navGroups.map((group) => (
+          {visibleGroups.map((group) => (
             <div key={group.label} className="flex flex-col gap-1">
               <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground font-mono">
                 {group.label}
@@ -138,8 +157,8 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ isOpen, onClose }) => {
           ))}
         </nav>
 
-        {/* Sidebar footer */}
-        <div className="border-t border-border p-3">
+        {/* Sidebar footer with user info & logout */}
+        <div className="border-t border-border p-3 flex flex-col gap-2">
           <div className="flex items-center gap-3 p-2 rounded-xs bg-surface-2 border border-border">
             <div className="size-7 rounded-xs bg-foreground text-background flex items-center justify-center text-xs font-mono font-bold shrink-0">
               {user?.name?.slice(0, 1) || 'U'}
@@ -148,7 +167,30 @@ export const AppSidebar: React.FC<AppSidebarProps> = ({ isOpen, onClose }) => {
               <p className="text-xs font-semibold text-foreground truncate">{user?.name}</p>
               <p className="text-[10px] text-muted-foreground font-mono capitalize">{user?.role?.toLowerCase()}</p>
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                logout();
+              }}
+              title="Sign Out"
+              className="p-1 rounded-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+              aria-label="Log out"
+            >
+              <LogOut className="size-3.5" />
+            </button>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              logout();
+            }}
+            className="w-full flex items-center justify-center gap-2 py-1.5 px-3 rounded-xs border border-destructive/20 text-destructive hover:bg-destructive/10 text-xs font-semibold transition-colors"
+          >
+            <LogOut className="size-3.5" />
+            <span>Sign Out</span>
+          </button>
         </div>
       </aside>
     </>

@@ -39,8 +39,8 @@ jobs:
 
       - name: Build Shared & Web Packages
         run: |
-          pnpm --filter @gym/shared build
-          pnpm --filter @gym/web build
+          pnpm --filter @gymtech/shared build
+          pnpm --filter @gymtech/web build
         env:
           VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
 

@@ -1,4 +1,4 @@
-import { Payment, PaymentMode } from '@gym/shared';
+import { Payment, PaymentMode } from '@gymtech/shared';
 
 export interface PaymentWithDetails extends Payment {
   first_name: string;

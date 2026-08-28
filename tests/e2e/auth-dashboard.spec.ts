@@ -89,14 +89,14 @@ test.describe('Gym SaaS — Auth & Dashboard Workflows', () => {
 
   test('loads landing page and navigates to sign in', async ({ page }) => {
     await page.goto('/#/');
-    await expect(page).toHaveTitle(/GymTeq/);
+    await expect(page).toHaveTitle(/GymTech/);
 
     const signInBtn = page.getByRole('banner').getByRole('link', { name: /Sign In/i });
     await expect(signInBtn).toBeVisible();
     await signInBtn.click();
 
     await expect(page).toHaveURL(/#\/login/);
-    await expect(page.getByText('Sign In to GymTeq')).toBeVisible();
+    await expect(page.getByText('Sign In to GymTech')).toBeVisible();
   });
 
   test('logs in successfully as gym owner and views dashboard metrics', async ({ page }) => {
@@ -111,7 +111,7 @@ test.describe('Gym SaaS — Auth & Dashboard Workflows', () => {
 
     // Verify KPI metric cards
     await expect(page.getByText('Active members').first()).toBeVisible();
-    await expect(page.getByText('142')).toBeVisible();
+    await expect(page.getByText('142', { exact: true })).toBeVisible();
     await expect(page.getByText("Today's Check-ins")).toBeVisible();
 
     // Verify expiring soon member

@@ -1,4 +1,4 @@
-import { SessionUser } from '@gym/shared';
+import { SessionUser } from '@gymtech/shared';
 import { json, errorResponse, corsOptionsResponse } from '../lib/response';
 
 export interface Env {
@@ -7,6 +7,10 @@ export interface Env {
   APP_ENV?: string;
   CORS_ORIGINS?: string;
   MEDIA_BUCKET?: R2Bucket;
+  RESEND_API_KEY?: string;
+  EMAIL_FROM?: string;
+  APP_URL?: string;
+  TURNSTILE_SECRET_KEY?: string;
 }
 
 export interface RequestContext {
@@ -43,11 +47,12 @@ export class NativeRouter {
 
   private addRoute(method: string, path: string, ...handlers: Handler[]) {
     const paramNames: string[] = [];
-    const regexPath = path.replace(/:([a-zA-Z0-9_]+)/g, (_, paramName) => {
+    const cleanPath = path.length > 1 && path.endsWith('/') ? path.slice(0, -1) : path;
+    const regexPath = cleanPath.replace(/:([a-zA-Z0-9_]+)/g, (_, paramName) => {
       paramNames.push(paramName);
       return '([^/]+)';
     });
-    const pattern = new RegExp(`^${regexPath}$`);
+    const pattern = new RegExp(`^${regexPath}/?$`);
 
     this.routes.push({
       method: method.toUpperCase(),

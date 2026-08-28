@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { Camera, Upload, Trash2, CheckCircle2, User, RefreshCw } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Camera, Upload, Trash2, User, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { compressAndConvertToBase64 } from '@/lib/image';
@@ -16,11 +16,30 @@ export const PhotoCaptureUpload: React.FC<PhotoCaptureUploadProps> = ({
   label = 'Member Profile Photo',
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   const [isCapturingWebcam, setIsCapturingWebcam] = useState(false);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileSizeKb, setFileSizeKb] = useState<number | null>(null);
+
+  // Safely attach stream to video element when webcam activates
+  useEffect(() => {
+    if (isCapturingWebcam && stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch((err) => {
+        console.warn('Webcam video play auto-start error:', err);
+      });
+    }
+  }, [isCapturingWebcam, stream]);
+
+  // Clean up media tracks when component unmounts
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [stream]);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -46,11 +65,9 @@ export const PhotoCaptureUpload: React.FC<PhotoCaptureUploadProps> = ({
       });
       setStream(mediaStream);
       setIsCapturingWebcam(true);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
     } catch (err) {
-      alert('Camera access not granted or unavailable on this device.');
+      console.error('Camera error:', err);
+      alert('Camera access was not granted or is unavailable on this device.');
     }
   };
 
@@ -88,31 +105,36 @@ export const PhotoCaptureUpload: React.FC<PhotoCaptureUploadProps> = ({
 
   return (
     <div className="flex flex-col gap-2.5">
-      <span className="text-xs font-semibold text-[var(--ink)]">{label}</span>
+      <span className="text-xs font-semibold text-foreground">{label}</span>
 
-      <div className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-xl border border-[var(--line)] bg-[var(--surface-2)]">
+      <div className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-sm border border-border bg-secondary/50">
         
         {/* Avatar Display Frame */}
-        <div className="relative size-20 sm:size-24 rounded-2xl border-2 border-[var(--line-strong)] bg-[var(--surface)] overflow-hidden flex items-center justify-center shrink-0 shadow-xs">
+        <div className="relative size-20 sm:size-24 rounded-sm border-2 border-border bg-card overflow-hidden flex items-center justify-center shrink-0 shadow-xs">
           {isCapturingWebcam ? (
             <video
-              ref={videoRef}
+              ref={(el) => {
+                videoRef.current = el;
+                if (el && stream && el.srcObject !== stream) {
+                  el.srcObject = stream;
+                  el.play().catch(() => {});
+                }
+              }}
               autoPlay
               playsInline
               muted
               className="size-full object-cover"
-              onLoadedMetadata={() => videoRef.current?.play()}
             />
           ) : value ? (
             <img src={value} alt="Member Photo" className="size-full object-cover" />
           ) : (
-            <div className="flex flex-col items-center justify-center text-[var(--muted)]">
+            <div className="flex flex-col items-center justify-center text-muted-foreground">
               <User className="size-8 opacity-50" />
             </div>
           )}
 
           {isProcessing && (
-            <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white">
+            <div className="absolute inset-0 bg-black/60 flex items-center justify-center text-white">
               <RefreshCw className="size-5 animate-spin" />
             </div>
           )}
@@ -134,7 +156,7 @@ export const PhotoCaptureUpload: React.FC<PhotoCaptureUploadProps> = ({
                 type="button"
                 size="sm"
                 onClick={snapPhoto}
-                className="bg-[var(--accent)] text-[var(--accent-on)] text-xs font-bold gap-1.5 h-8 flex-1"
+                className="bg-primary text-primary-foreground text-xs font-bold gap-1.5 h-8 flex-1"
               >
                 <Camera className="size-3.5" />
                 <span>Snap Photo</span>
@@ -156,7 +178,7 @@ export const PhotoCaptureUpload: React.FC<PhotoCaptureUploadProps> = ({
                 size="sm"
                 variant="outline"
                 onClick={() => fileInputRef.current?.click()}
-                className="text-xs h-8 gap-1.5 border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--line)]"
+                className="text-xs h-8 gap-1.5 border-border bg-card hover:bg-secondary"
               >
                 <Upload className="size-3.5" />
                 <span>Upload Image</span>
@@ -167,7 +189,7 @@ export const PhotoCaptureUpload: React.FC<PhotoCaptureUploadProps> = ({
                 size="sm"
                 variant="outline"
                 onClick={startWebcam}
-                className="text-xs h-8 gap-1.5 border-[var(--line)] bg-[var(--surface)] hover:bg-[var(--line)]"
+                className="text-xs h-8 gap-1.5 border-border bg-card hover:bg-secondary"
               >
                 <Camera className="size-3.5" />
                 <span>Use Webcam</span>
@@ -179,7 +201,7 @@ export const PhotoCaptureUpload: React.FC<PhotoCaptureUploadProps> = ({
                   size="sm"
                   variant="ghost"
                   onClick={clearPhoto}
-                  className="text-xs h-8 text-[var(--err)] hover:bg-[var(--err-soft)] px-2"
+                  className="text-xs h-8 text-destructive hover:bg-destructive/10 px-2"
                   title="Remove Photo"
                 >
                   <Trash2 className="size-3.5" />
@@ -188,10 +210,10 @@ export const PhotoCaptureUpload: React.FC<PhotoCaptureUploadProps> = ({
             </div>
           )}
 
-          <div className="flex items-center gap-2 text-[11px] text-[var(--muted)]">
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
             <span>WebP compressed for fast check-in</span>
             {fileSizeKb && (
-              <Badge variant="outline" className="text-[10px] font-mono bg-[var(--ok-soft)] text-[var(--ok)] border-[var(--ok)]/30">
+              <Badge variant="outline" className="text-[10px] font-mono bg-ok/10 text-ok border-ok/30">
                 {fileSizeKb} KB
               </Badge>
             )}

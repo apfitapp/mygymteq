@@ -1,4 +1,4 @@
-import { Membership } from '@gym/shared';
+import { Membership } from '@gymtech/shared';
 
 export interface MembershipRow extends Membership {}
 

@@ -1,4 +1,4 @@
-import { SessionUser, UserRole } from '@gym/shared';
+import { SessionUser, UserRole } from '@gymtech/shared';
 
 export interface UserSessionPayload {
   id: string;

@@ -1,6 +1,6 @@
 import { UserRepository } from '../repositories/user.repository';
-import { hashPassword, createSessionToken } from '../lib/session';
-import { SessionUser, Gym } from '@gym/shared';
+import { hashPassword, createSessionToken, verifySessionToken } from '../lib/session';
+import { SessionUser, Gym } from '@gymtech/shared';
 
 export class AuthService {
   private userRepo: UserRepository;
@@ -67,6 +67,28 @@ export class AuthService {
     return {
       user,
       gym,
+    };
+  }
+
+  async signMemberToken(member: { id: string; gymId: string; memberCode: string; phone: string; name: string }): Promise<string> {
+    const sessionUser: SessionUser = {
+      id: member.id,
+      email: `${member.memberCode.toLowerCase()}@member.gymtech.app`,
+      name: member.name,
+      role: 'MEMBER',
+      gymId: member.gymId,
+    };
+    return await createSessionToken(sessionUser, this.jwtSecret);
+  }
+
+  async verifyToken(token: string) {
+    const payload = await verifySessionToken(token, this.jwtSecret);
+    if (!payload) return null;
+    return {
+      userId: payload.id,
+      email: payload.email,
+      role: payload.role,
+      gymId: payload.gymId,
     };
   }
 }

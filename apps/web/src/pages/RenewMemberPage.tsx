@@ -1,19 +1,26 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, CheckCircle2, MessageCircle, RefreshCw, AlertCircle } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CustomSelect } from '@/components/ui/CustomSelect';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { api } from '@/lib/api';
-import { RenewMembershipResponse } from '@gym/shared';
+import { RenewMembershipResponse } from '@gymtech/shared';
 
 export const RenewMemberPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const queryClient = useQueryClient();
 
   const { data: memberData } = useQuery({
     queryKey: ['member', id],
@@ -73,6 +80,10 @@ export const RenewMemberPage: React.FC = () => {
       });
 
       setResult(res);
+      queryClient.invalidateQueries({ queryKey: ['member', id] });
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['payments'] });
     } catch (err: any) {
       setError(err.message || 'Failed to renew membership');
     } finally {
@@ -149,17 +160,18 @@ export const RenewMemberPage: React.FC = () => {
               <CardContent className="pt-4 flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="planId" className="text-xs font-semibold">Select Plan *</Label>
-                  <CustomSelect
-                    id="planId"
-                    required
-                    value={planId}
-                    onChange={(e) => handlePlanChange(e.target.value)}
-                    options={plans.map((p) => ({
-                      value: p.id,
-                      label: `${p.name} (${p.duration_months} mo) — ₹${(p.price / 100).toLocaleString('en-IN')}`,
-                    }))}
-                    placeholder="Choose renewal package"
-                  />
+                  <Select value={planId} onValueChange={handlePlanChange}>
+                    <SelectTrigger id="planId" className="text-xs">
+                      <SelectValue placeholder="Choose renewal package" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {plans.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.name} ({p.duration_months} mo) — ₹{(p.price / 100).toLocaleString('en-IN')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -204,17 +216,17 @@ export const RenewMemberPage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="paymentMode" className="text-xs font-semibold">Payment Mode</Label>
-                    <CustomSelect
-                      id="paymentMode"
-                      value={paymentMode}
-                      onChange={(e) => setPaymentMode(e.target.value as any)}
-                      options={[
-                        { value: 'UPI', label: 'UPI / QR Code' },
-                        { value: 'CASH', label: 'Cash' },
-                        { value: 'CARD', label: 'Debit / Credit Card' },
-                        { value: 'NETBANKING', label: 'Net Banking' },
-                      ]}
-                    />
+                    <Select value={paymentMode} onValueChange={(val: any) => setPaymentMode(val)}>
+                      <SelectTrigger id="paymentMode" className="text-xs">
+                        <SelectValue placeholder="Select mode" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="UPI">UPI / QR Code</SelectItem>
+                        <SelectItem value="CASH">Cash</SelectItem>
+                        <SelectItem value="CARD">Debit / Credit Card</SelectItem>
+                        <SelectItem value="NETBANKING">Net Banking</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex flex-col gap-1.5">
                     <Label htmlFor="referenceId" className="text-xs font-semibold">Reference / Notes</Label>

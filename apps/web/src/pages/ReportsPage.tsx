@@ -12,18 +12,40 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { Users, IndianRupee, CalendarCheck, AlertCircle, TrendingUp, PieChart as PieIcon } from 'lucide-react';
+import { Users, IndianRupee, CalendarCheck, AlertCircle, TrendingUp, PieChart as PieIcon, Download, Loader2 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { StatCard } from '@/components/ui/StatCard';
+import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { useToast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
 
 const COLORS = ['#00C96E', '#3B82F6', '#F59E0B', '#EC4899', '#8B5CF6', '#14B8A6'];
 
 export const ReportsPage: React.FC = () => {
   const [period, setPeriod] = useState<'month' | 'quarter' | 'year'>('month');
+  const [exporting, setExporting] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const handleExport = async (type: 'payments' | 'members' | 'attendance' | 'dues') => {
+    setExporting(type);
+    try {
+      await api.downloadReportExport(type);
+      toast('success', 'Report exported', `The ${type} report has been downloaded as CSV.`);
+    } catch (err: any) {
+      toast('error', 'Export failed', err.message);
+    } finally {
+      setExporting(null);
+    }
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['reports'],
@@ -59,7 +81,27 @@ export const ReportsPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex items-center gap-1 p-1 bg-surface-2 border border-border rounded-lg">
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="text-xs h-9 font-semibold" disabled={!!exporting}>
+                {exporting ? (
+                  <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                ) : (
+                  <Download className="mr-1.5 size-3.5" />
+                )}
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleExport('payments')}>Payments (CSV)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('members')}>Members (CSV)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('attendance')}>Attendance (CSV)</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('dues')}>Outstanding Dues (CSV)</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <div className="flex items-center gap-1 p-1 bg-surface-2 border border-border rounded-lg">
           {(['month', 'quarter', 'year'] as const).map((p) => (
             <button
               key={p}
@@ -74,6 +116,7 @@ export const ReportsPage: React.FC = () => {
               {p === 'month' ? 'This Month' : p === 'quarter' ? 'Last 3 Months' : 'This Year'}
             </button>
           ))}
+          </div>
         </div>
       </section>
 
@@ -128,17 +171,17 @@ export const ReportsPage: React.FC = () => {
               <div className="w-full h-60">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                     <XAxis
                       dataKey="name"
                       tickLine={false}
                       axisLine={false}
-                      tick={{ fill: 'var(--muted)', fontSize: 10 }}
+                      tick={{ fill: 'var(--muted-foreground)', fontSize: 10 }}
                     />
                     <YAxis
                       tickLine={false}
                       axisLine={false}
-                      tick={{ fill: 'var(--muted)', fontSize: 10 }}
+                      tick={{ fill: 'var(--muted-foreground)', fontSize: 10 }}
                       tickFormatter={(val) => `₹${val / 1000}k`}
                     />
                     <Tooltip

@@ -21,9 +21,23 @@ import {
   User,
   Member,
   Payment,
-} from '@gym/shared';
+  ForgotPasswordResponse,
+  ResetPasswordRequest,
+  ResetPasswordResponse,
+  BulkImportMembersRequest,
+  BulkImportMembersResponse,
+  MemberLoginRequest,
+  MemberLoginResponse,
+  FreezeMemberResponse,
+  RecordPtCollectionRequest,
+  RecordPtCollectionResponse,
+  PtCollection,
+  PtSummary,
+  InvoiceData,
+} from '@gymtech/shared';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8787';
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || 'https://gymtech-api.ap-fitapp.workers.dev';
 
 class ApiClient {
   private getToken(): string | null {
@@ -77,6 +91,38 @@ class ApiClient {
     return this.request<MeResponse>('/api/auth/me');
   }
 
+  async forgotPassword(email: string): Promise<ForgotPasswordResponse> {
+    return this.request<ForgotPasswordResponse>('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async resetPassword(payload: ResetPasswordRequest): Promise<ResetPasswordResponse> {
+    return this.request<ResetPasswordResponse>('/api/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async memberLogin(payload: MemberLoginRequest): Promise<MemberLoginResponse> {
+    return this.request<MemberLoginResponse>('/api/auth/member-login', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getMemberPortalData(): Promise<{
+    member: Member;
+    activeMembership?: any;
+    memberships: any[];
+    payments: Payment[];
+    attendance: any[];
+    gym: { name: string; address?: string; phone?: string };
+  }> {
+    return this.request('/api/member/portal');
+  }
+
   // Dashboard
   async getDashboard(): Promise<DashboardMetrics> {
     return this.request<DashboardMetrics>('/api/dashboard');
@@ -101,6 +147,13 @@ class ApiClient {
     });
   }
 
+  async bulkImportMembers(payload: BulkImportMembersRequest): Promise<BulkImportMembersResponse> {
+    return this.request<BulkImportMembersResponse>('/api/members/bulk-import', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
   async getMemberDetail(id: string): Promise<MemberDetailResponse> {
     return this.request<MemberDetailResponse>(`/api/members/${id}`);
   }
@@ -116,6 +169,20 @@ class ApiClient {
     return this.request<RenewMembershipResponse>(`/api/members/${id}/renew`, {
       method: 'POST',
       body: JSON.stringify(payload),
+    });
+  }
+
+  async freezeMember(id: string, reason?: string): Promise<FreezeMemberResponse> {
+    return this.request<FreezeMemberResponse>(`/api/members/${id}/freeze`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    });
+  }
+
+  async unfreezeMember(id: string): Promise<FreezeMemberResponse> {
+    return this.request<FreezeMemberResponse>(`/api/members/${id}/unfreeze`, {
+      method: 'POST',
+      body: JSON.stringify({}),
     });
   }
 
@@ -174,6 +241,56 @@ class ApiClient {
   // Reports
   async getReports(): Promise<{ metrics: DashboardMetrics; planBreakdown: any[] }> {
     return this.request<{ metrics: DashboardMetrics; planBreakdown: any[] }>('/api/reports');
+  }
+
+  async getInvoice(paymentId: string): Promise<InvoiceData> {
+    return this.request<InvoiceData>(`/api/payments/${paymentId}/invoice`);
+  }
+
+  async downloadReportExport(type: 'payments' | 'members' | 'attendance' | 'dues'): Promise<void> {
+    const token = this.getToken();
+    const res = await fetch(`${API_BASE_URL}/api/reports/export?type=${type}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `Export failed (HTTP ${res.status})`);
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gymtech-${type}-report.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // PT Collections
+  async getPtCollections(params?: { trainerId?: string }): Promise<{ collections: PtCollection[] }> {
+    const q = new URLSearchParams();
+    if (params?.trainerId) q.set('trainerId', params.trainerId);
+    const qs = q.toString();
+    return this.request<{ collections: PtCollection[] }>(`/api/pt/collections${qs ? `?${qs}` : ''}`);
+  }
+
+  async getPtSummary(): Promise<PtSummary> {
+    return this.request<PtSummary>('/api/pt/summary');
+  }
+
+  async recordPtCollection(payload: RecordPtCollectionRequest): Promise<RecordPtCollectionResponse> {
+    return this.request<RecordPtCollectionResponse>('/api/pt/collections', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async settlePtCommission(id: string, status: 'PAID' | 'PENDING'): Promise<{ success: boolean }> {
+    return this.request<{ success: boolean }>(`/api/pt/collections/${id}/settle`, {
+      method: 'POST',
+      body: JSON.stringify({ status }),
+    });
   }
 
   // Super Admin

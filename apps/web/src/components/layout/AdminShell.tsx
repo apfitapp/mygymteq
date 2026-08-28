@@ -31,12 +31,10 @@ export const AdminShell: React.FC<AdminShellProps> = ({ title, children }) => {
       >
         <div className="flex h-[var(--header-h)] items-center justify-between border-b border-border px-5">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="size-8 rounded-xs bg-foreground text-background flex items-center justify-center font-display text-base font-bold shrink-0">
-              G
-            </div>
+            <img src="/logo.png" alt="GymTech" className="h-8 w-auto rounded-xs shrink-0" />
             <div className="min-w-0">
               <p className="font-display text-sm font-bold text-foreground leading-tight truncate">
-                GymTeq Platform
+                GymTech Platform
               </p>
               <span className="inline-flex rounded-xs bg-err/10 px-1.5 py-0.2 font-mono text-[9px] font-bold text-err border border-err/20">
                 SUPER ADMIN

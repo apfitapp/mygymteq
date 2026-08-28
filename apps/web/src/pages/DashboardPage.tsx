@@ -50,7 +50,7 @@ export const DashboardPage: React.FC = () => {
   };
 
   return (
-    <AppShell title="Operations Dashboard" breadcrumb={gym?.name || 'Iron House Fitness'}>
+    <AppShell title="Operations Dashboard" breadcrumb={gym?.name || 'GymTech'}>
       {/* Top Banner & Quick Actions */}
       <section className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
@@ -124,73 +124,27 @@ export const DashboardPage: React.FC = () => {
       <FinancialPacingGauge
         currentRevenue={(metrics?.monthlyRevenue || 0) / 100}
         pendingDues={(metrics?.pendingDues || 0) / 100}
+        activeMembers={metrics?.activeMembers || 0}
       />
 
-      {/* Visual Analytics & Radar Charts */}
-      <GymAnalyticsCharts />
+      {/* Visual Analytics Charts (Real Database Calculations) */}
+      <GymAnalyticsCharts
+        weeklyAttendance={metrics?.weeklyAttendance}
+        monthlyRevenueTrend={metrics?.monthlyRevenueTrend}
+        planDistribution={metrics?.planDistribution}
+      />
 
       {/* Retention Churn Radar & WhatsApp Renewal Queue (2 Columns) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <RetentionChurnRadar />
-        <RenewalRecoveryCenter />
+        <RetentionChurnRadar
+          atRiskMembers={metrics?.atRiskMembers || []}
+          gymName={gym?.name || 'GymTech'}
+        />
+        <RenewalRecoveryCenter
+          expiringMembers={metrics?.expiringSoon || []}
+          gymName={gym?.name || 'GymTech'}
+        />
       </div>
-
-      {/* Two Columns: Expiring Memberships & Recent Collections */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Expiring Memberships */}
-        <Card className="glass-card shadow-xs rounded-sm">
-          <CardHeader className="flex flex-row items-center justify-between pb-3 border-b border-border">
-            <div>
-              <CardTitle className="font-display text-base">Expiring Memberships</CardTitle>
-              <CardDescription className="text-xs">Upcoming renewals within next 7 days</CardDescription>
-            </div>
-            <Badge variant="outline" className="font-mono text-xs">
-              {metrics?.expiringSoon?.length || 0} Members
-            </Badge>
-          </CardHeader>
-          <CardContent className="p-0">
-            {!metrics?.expiringSoon || metrics.expiringSoon.length === 0 ? (
-              <div className="py-12 text-center text-xs text-muted-foreground px-4">
-                No memberships approaching expiry in the next 7 days.
-              </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {metrics.expiringSoon.map((m) => (
-                  <div key={m.id} className="p-4 flex items-center justify-between gap-3 hover:bg-secondary/40 transition-colors">
-                    <div className="flex flex-col min-w-0">
-                      <span className="font-semibold text-xs text-foreground truncate">
-                        {m.first_name} {m.last_name || ''}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground font-mono">
-                        {m.plan_name} • Exp: {new Date(m.end_date * 1000).toLocaleDateString('en-IN')}
-                      </span>
-                      {m.due_amount > 0 && (
-                        <span className="text-[10px] font-mono text-destructive font-semibold">
-                          Pending Due: {formatCurrency(m.due_amount)}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      {m.whatsapp_url && (
-                        <Button asChild size="sm" variant="outline" className="h-8 px-2.5 text-xs text-[#25D366] hover:text-[#20BA5A] border-[#25D366]/30">
-                          <a href={m.whatsapp_url} target="_blank" rel="noopener noreferrer">
-                            <MessageCircle className="size-3.5 mr-1 fill-current" /> WhatsApp
-                          </a>
-                        </Button>
-                      )}
-                      <Button asChild size="sm" variant="ghost" className="h-8 px-2 text-xs">
-                        <a href={`#/members/${m.id}/renew`}>
-                          Renew
-                        </a>
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
 
         {/* Recent Collections */}
         <Card className="glass-card shadow-xs rounded-sm">
@@ -244,7 +198,6 @@ export const DashboardPage: React.FC = () => {
             )}
           </CardContent>
         </Card>
-      </div>
     </AppShell>
   );
 };

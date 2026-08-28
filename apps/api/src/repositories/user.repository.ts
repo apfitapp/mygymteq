@@ -1,4 +1,4 @@
-import { User, UserRole } from '@gym/shared';
+import { User, UserRole } from '@gymtech/shared';
 
 export interface UserRow {
   id: string;

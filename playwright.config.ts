@@ -12,7 +12,7 @@ export default defineConfig({
     viewport: { width: 1280, height: 720 },
   },
   webServer: {
-    command: 'pnpm --filter @gym/web preview --port 5173',
+    command: 'pnpm --filter @gymtech/web preview --port 5173',
     port: 5173,
     reuseExistingServer: !process.env.CI,
     timeout: 15000,

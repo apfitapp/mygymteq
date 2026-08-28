@@ -12,7 +12,7 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>(() => {
-    const saved = localStorage.getItem('gymteq_theme') as Theme | null;
+    const saved = localStorage.getItem('gymtech_theme') as Theme | null;
     return saved || 'light';
   });
 
@@ -27,7 +27,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     applyTheme(theme);
-    localStorage.setItem('gymteq_theme', theme);
+    localStorage.setItem('gymtech_theme', theme);
 
     if (theme === 'system') {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');

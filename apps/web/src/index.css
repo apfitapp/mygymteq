@@ -1,8 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..800;1,9..144,400..800&family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 /* ============================================================
-   Tailwind CSS v4 + GymTeq Theme Mapping (Sharp & Glass UI)
+   Tailwind CSS v4 + GymTech Theme Mapping (Sharp & Glass UI)
    ============================================================ */
 
 @theme inline {
@@ -49,7 +49,7 @@
 
   /* Typography */
   --font-sans: "Inter", -apple-system, "Segoe UI", sans-serif;
-  --font-display: "Outfit", "Plus Jakarta Sans", "Inter", sans-serif;
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
   --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
 }
 
@@ -95,6 +95,13 @@
     --glass-border: rgba(230, 226, 217, 0.85);
     --glass-border-glow: rgba(0, 201, 110, 0.4);
 
+    /* Aliases & Fallbacks */
+    --line: var(--border);
+    --ink: var(--foreground);
+    --ink-2: var(--muted-foreground);
+    --surface: var(--card);
+    --surface-2: var(--secondary);
+
     --sidebar-w: 240px;
     --header-h: 60px;
     --maxw: 1200px;
@@ -137,6 +144,13 @@
     --glass-card: rgba(26, 25, 22, 0.78);
     --glass-border: rgba(43, 42, 37, 0.85);
     --glass-border-glow: rgba(0, 229, 122, 0.35);
+
+    /* Aliases & Fallbacks */
+    --line: var(--border);
+    --ink: var(--foreground);
+    --ink-2: var(--muted-foreground);
+    --surface: var(--card);
+    --surface-2: var(--secondary);
 
     --sidebar-w: 240px;
     --header-h: 60px;

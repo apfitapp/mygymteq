@@ -4,6 +4,7 @@ export const USER_ROLES = {
   MANAGER: 'MANAGER',
   STAFF: 'STAFF',
   TRAINER: 'TRAINER',
+  MEMBER: 'MEMBER',
 } as const;
 
 export type UserRole = (typeof USER_ROLES)[keyof typeof USER_ROLES];
@@ -30,6 +31,7 @@ export const MEMBERSHIP_STATUSES = {
   EXPIRED: 'EXPIRED',
   CANCELLED: 'CANCELLED',
   PENDING: 'PENDING',
+  FROZEN: 'FROZEN',
 } as const;
 
 export type MembershipStatus = (typeof MEMBERSHIP_STATUSES)[keyof typeof MEMBERSHIP_STATUSES];

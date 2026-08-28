@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Search, UserPlus, Phone, CreditCard, ChevronRight } from 'lucide-react';
+import { Plus, Search, UserPlus, Phone, CreditCard, ChevronRight, FileSpreadsheet } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,11 +8,13 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { GymStatusBadge } from '@/components/ui/GymStatusBadge';
+import { ExcelMigrationDialog } from '@/components/members/ExcelMigrationDialog';
 import { api } from '@/lib/api';
 
 export const MembersPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
+  const [isMigrationOpen, setIsMigrationOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['members', search, statusFilter],
@@ -38,12 +40,26 @@ export const MembersPage: React.FC = () => {
           </p>
         </div>
 
-        <Button asChild className="bg-primary text-primary-foreground font-bold text-xs h-9">
-          <a href="#/members/new">
-            <Plus className="mr-1.5 size-4" /> Add Member
-          </a>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => setIsMigrationOpen(true)}
+            className="text-xs h-9 font-medium gap-1.5 border-border hover:bg-secondary"
+          >
+            <FileSpreadsheet className="size-4 text-primary" />
+            <span>Excel / CSV Migration</span>
+          </Button>
+
+          <Button asChild className="bg-primary text-primary-foreground font-bold text-xs h-9">
+            <a href="#/members/new">
+              <Plus className="mr-1.5 size-4" /> Add Member
+            </a>
+          </Button>
+        </div>
       </section>
+
+      {/* Migration Dialog */}
+      <ExcelMigrationDialog open={isMigrationOpen} onOpenChange={setIsMigrationOpen} />
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row items-center gap-3">
@@ -57,8 +73,8 @@ export const MembersPage: React.FC = () => {
           />
         </div>
 
-        <div className="flex items-center gap-1 p-1 bg-surface-2 border border-border rounded-lg self-start sm:self-auto">
-          {['ALL', 'ACTIVE', 'EXPIRED'].map((s) => (
+        <div className="flex items-center gap-1 bg-secondary/80 p-1 rounded-lg border border-border">
+          {(['ALL', 'ACTIVE', 'EXPIRED', 'FROZEN'] as const).map((s) => (
             <button
               key={s}
               type="button"
@@ -69,7 +85,7 @@ export const MembersPage: React.FC = () => {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              {s === 'ALL' ? 'All Members' : s === 'ACTIVE' ? 'Active' : 'Expired'}
+              {s === 'ALL' ? 'All Members' : s === 'ACTIVE' ? 'Active' : s === 'EXPIRED' ? 'Expired' : 'Frozen'}
             </button>
           ))}
         </div>
@@ -108,7 +124,11 @@ export const MembersPage: React.FC = () => {
                 </TableRow>
               ) : (
                 members.map((m: any) => {
-                  const initials = `${m.first_name[0]}${m.last_name ? m.last_name[0] : ''}`.toUpperCase();
+                  const initials = `${(m.first_name?.[0] || 'M')}${(m.last_name?.[0] || '')}`.toUpperCase();
+                  const nowSec = Math.floor(Date.now() / 1000);
+                  const isExpired = m.membership_end_date ? m.membership_end_date < nowSec : false;
+                  const daysRemaining = m.membership_end_date ? Math.ceil((m.membership_end_date - nowSec) / 86400) : 0;
+                  const effectiveStatus = isExpired || m.status === 'EXPIRED' ? 'EXPIRED' : m.status;
 
                   return (
                     <TableRow key={m.id} className="hover:bg-secondary/40">
@@ -143,18 +163,35 @@ export const MembersPage: React.FC = () => {
                       </TableCell>
 
                       <TableCell>
-                        <div className="flex flex-col text-xs">
-                          <span className="font-medium text-foreground">{m.plan_name || 'No Active Plan'}</span>
-                          {m.membership_end_date && (
-                            <span className="text-[10px] font-mono text-muted-foreground">
-                              Exp: {new Date(m.membership_end_date * 1000).toLocaleDateString('en-IN')}
-                            </span>
+                        <div className="flex flex-col gap-1 text-xs">
+                          <span className="font-semibold text-foreground">{m.plan_name || 'No Plan'}</span>
+                          {m.membership_end_date ? (
+                            <>
+                              <span className="text-[10px] font-mono text-muted-foreground">
+                                {m.membership_start_date ? new Date(m.membership_start_date * 1000).toLocaleDateString('en-IN') : '—'} → {new Date(m.membership_end_date * 1000).toLocaleDateString('en-IN')}
+                              </span>
+                              {isExpired ? (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-destructive/10 text-destructive border border-destructive/30 w-fit">
+                                  EXPIRED · Frozen
+                                </span>
+                              ) : daysRemaining <= 7 ? (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 w-fit">
+                                  Expiring ({daysRemaining}d left)
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-mono font-semibold bg-ok/10 text-ok border border-ok/30 w-fit">
+                                  Active ({daysRemaining}d left)
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-[10px] font-mono text-muted-foreground">No active term</span>
                           )}
                         </div>
                       </TableCell>
 
                       <TableCell>
-                        <GymStatusBadge status={m.status} />
+                        <GymStatusBadge status={effectiveStatus} />
                       </TableCell>
 
                       <TableCell className="text-right font-mono text-xs">
@@ -169,6 +206,11 @@ export const MembersPage: React.FC = () => {
 
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          {isExpired && (
+                            <Button asChild size="sm" variant="outline" className="h-7 text-[11px] px-2.5 font-bold border-primary/40 text-primary hover:bg-primary/10">
+                              <a href={`#/members/${m.id}/renew`}>Renew</a>
+                            </Button>
+                          )}
                           <Button asChild variant="ghost" size="sm" className="h-7 text-xs px-2">
                             <a href={`#/members/${m.id}`}>
                               Profile <ChevronRight className="ml-1 size-3" />

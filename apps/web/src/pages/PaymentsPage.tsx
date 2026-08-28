@@ -8,13 +8,13 @@ import {
   MessageCircle,
   CheckCircle2,
   AlertCircle,
+  FileText,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { StatCard } from '@/components/ui/StatCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CustomSelect } from '@/components/ui/CustomSelect';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import {
@@ -26,6 +26,14 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { InvoiceDialog } from '@/components/billing/InvoiceDialog';
 import { api } from '@/lib/api';
 
 export const PaymentsPage: React.FC = () => {
@@ -56,6 +64,7 @@ export const PaymentsPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successInfo, setSuccessInfo] = useState<{ receiptNumber: string; whatsappUrl?: string } | null>(null);
+  const [invoicePaymentId, setInvoicePaymentId] = useState<string | null>(null);
 
   React.useEffect(() => {
     if (members.length > 0 && !selectedMemberId) {
@@ -160,7 +169,7 @@ export const PaymentsPage: React.FC = () => {
                 <TableHead className="font-mono text-[10px] uppercase">Mode</TableHead>
                 <TableHead className="font-mono text-[10px] uppercase">Reference</TableHead>
                 <TableHead className="font-mono text-[10px] uppercase text-right">Amount</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase text-right">WhatsApp</TableHead>
+                <TableHead className="font-mono text-[10px] uppercase text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -207,13 +216,23 @@ export const PaymentsPage: React.FC = () => {
                       {formatCurrency(p.amount)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {p.whatsapp_url && (
-                        <Button asChild size="sm" variant="ghost" className="h-7 text-xs text-[#25D366] hover:bg-[#25D366]/10">
-                          <a href={p.whatsapp_url} target="_blank" rel="noopener noreferrer">
-                            <MessageCircle className="size-3.5 mr-1 fill-current" /> Share
-                          </a>
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 text-xs"
+                          onClick={() => setInvoicePaymentId(p.id)}
+                        >
+                          <FileText className="size-3.5 mr-1" /> Invoice
                         </Button>
-                      )}
+                        {p.whatsapp_url && (
+                          <Button asChild size="sm" variant="ghost" className="h-7 text-xs text-[#25D366] hover:bg-[#25D366]/10">
+                            <a href={p.whatsapp_url} target="_blank" rel="noopener noreferrer">
+                              <MessageCircle className="size-3.5 mr-1 fill-current" /> Share
+                            </a>
+                          </Button>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -222,6 +241,13 @@ export const PaymentsPage: React.FC = () => {
           </Table>
         </CardContent>
       </Card>
+
+      {/* GST Invoice Dialog */}
+      <InvoiceDialog
+        paymentId={invoicePaymentId}
+        open={!!invoicePaymentId}
+        onOpenChange={(open) => !open && setInvoicePaymentId(null)}
+      />
 
       {/* Record Payment Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -269,17 +295,19 @@ export const PaymentsPage: React.FC = () => {
             <form onSubmit={handleRecordSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="memberSelect" className="text-xs font-semibold">Select Member *</Label>
-                <CustomSelect
-                  id="memberSelect"
-                  required
-                  value={selectedMemberId}
-                  onChange={(e) => setSelectedMemberId(e.target.value)}
-                  options={members.map((m: any) => ({
-                    value: m.id,
-                    label: `${m.first_name} ${m.last_name || ''} (${m.member_code})${m.membership_due_amount > 0 ? ` — Due: ${formatCurrency(m.membership_due_amount)}` : ''}`,
-                  }))}
-                  placeholder="Select member"
-                />
+                <Select value={selectedMemberId} onValueChange={(val) => setSelectedMemberId(val)}>
+                  <SelectTrigger id="memberSelect" className="text-xs">
+                    <SelectValue placeholder="Select member" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {members.map((m: any) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.first_name} {m.last_name || ''} ({m.member_code})
+                        {m.membership_due_amount > 0 ? ` — Due: ${formatCurrency(m.membership_due_amount)}` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="flex flex-col gap-1.5">
@@ -299,17 +327,17 @@ export const PaymentsPage: React.FC = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="mode" className="text-xs font-semibold">Payment Mode</Label>
-                  <CustomSelect
-                    id="mode"
-                    value={paymentMode}
-                    onChange={(e) => setPaymentMode(e.target.value as any)}
-                    options={[
-                      { value: 'UPI', label: 'UPI / QR Code' },
-                      { value: 'CASH', label: 'Cash' },
-                      { value: 'CARD', label: 'Debit / Credit Card' },
-                      { value: 'NETBANKING', label: 'Net Banking' },
-                    ]}
-                  />
+                  <Select value={paymentMode} onValueChange={(val: any) => setPaymentMode(val)}>
+                    <SelectTrigger id="mode" className="text-xs">
+                      <SelectValue placeholder="Select mode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="UPI">UPI / QR Code</SelectItem>
+                      <SelectItem value="CASH">Cash</SelectItem>
+                      <SelectItem value="CARD">Debit / Credit Card</SelectItem>
+                      <SelectItem value="NETBANKING">Net Banking</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="ref" className="text-xs font-semibold">Ref / Notes</Label>

@@ -79,18 +79,19 @@ export const SettingsNotificationsPage: React.FC = () => {
                 </span>
               </div>
 
-              <div className="p-4 rounded-lg border border-border bg-surface-2 opacity-60 flex flex-col gap-1 cursor-not-allowed">
+              <div className="p-4 rounded-lg border-2 border-primary bg-primary/5 flex flex-col gap-1 cursor-pointer">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 font-bold text-xs text-foreground">
-                    <Mail className="size-4 text-muted-foreground" />
-                    Email Gateway
+                    <Mail className="size-4 text-primary" />
+                    Automated Email
                   </div>
+                  <span className="size-2 rounded-full bg-primary"></span>
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1">
-                  Transactional SMTP / Resend Email Engine
+                  Automated receipts, welcome letters &amp; password resets
                 </p>
-                <span className="text-[10px] font-mono text-muted-foreground mt-2">
-                  DISABLED IN MVP
+                <span className="text-[10px] font-mono text-primary font-semibold mt-2">
+                  ACTIVE (Free Automated Engine)
                 </span>
               </div>
             </div>

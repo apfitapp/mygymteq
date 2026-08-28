@@ -14,10 +14,16 @@ import { StatCard } from '@/components/ui/StatCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { CustomSelect } from '@/components/ui/CustomSelect';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { api } from '@/lib/api';
 
@@ -52,11 +58,12 @@ export const AdminPage: React.FC = () => {
   const [ownerName, setOwnerName] = useState('');
   const [ownerEmail, setOwnerEmail] = useState('');
   const [ownerPhone, setOwnerPhone] = useState('');
-  const [ownerPassword, setOwnerPassword] = useState('admin123');
+  const [ownerPassword, setOwnerPassword] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [provisionedCredentials, setProvisionedCredentials] = useState<{ email: string; password: string } | null>(null);
 
   React.useEffect(() => {
     if (plans.length > 0 && !planId) {
@@ -70,6 +77,10 @@ export const AdminPage: React.FC = () => {
     setSuccess(false);
     setIsSubmitting(true);
 
+    // Auto-generate a secure owner password when one isn't provided
+    const effectivePassword =
+      ownerPassword || `Gtq${Math.random().toString(36).slice(2, 10)}!${Math.floor(Math.random() * 90 + 10)}`;
+
     try {
       await api.createGym({
         gymName,
@@ -80,10 +91,11 @@ export const AdminPage: React.FC = () => {
         ownerName,
         ownerEmail,
         ownerPhone,
-        ownerPassword,
+        ownerPassword: effectivePassword,
       });
 
       setSuccess(true);
+      setProvisionedCredentials({ email: ownerEmail, password: effectivePassword });
       setGymName('');
       setSlug('');
       setCity('');
@@ -91,6 +103,7 @@ export const AdminPage: React.FC = () => {
       setOwnerName('');
       setOwnerEmail('');
       setOwnerPhone('');
+      setOwnerPassword('');
 
       queryClient.invalidateQueries({ queryKey: ['admin-gyms'] });
       queryClient.invalidateQueries({ queryKey: ['admin-metrics'] });
@@ -264,6 +277,14 @@ export const AdminPage: React.FC = () => {
                   <CheckCircle2 className="size-4" />
                   <AlertDescription className="text-xs font-semibold">
                     New gym onboarded &amp; primary owner account activated!
+                    {provisionedCredentials && (
+                      <span className="block mt-1.5 font-mono text-[11px] text-ok/90">
+                        Login: {provisionedCredentials.email} — Password: {provisionedCredentials.password}
+                        <span className="block text-[10px] opacity-75">
+                          Share these credentials securely with the gym owner. They should change the password after first login.
+                        </span>
+                      </span>
+                    )}
                   </AlertDescription>
                 </Alert>
               )}
@@ -324,16 +345,18 @@ export const AdminPage: React.FC = () => {
                   </div>
                   <div className="flex flex-col gap-1">
                     <Label htmlFor="gPlan" className="text-xs font-semibold">SaaS Plan *</Label>
-                    <CustomSelect
-                      id="gPlan"
-                      value={planId}
-                      onChange={(e) => setPlanId(e.target.value)}
-                      options={plans.map((p) => ({
-                        value: p.id,
-                        label: `${p.name} (₹${p.price_monthly / 100}/mo)`,
-                      }))}
-                      placeholder="Select SaaS plan"
-                    />
+                    <Select value={planId} onValueChange={(val) => setPlanId(val)}>
+                      <SelectTrigger id="gPlan" className="text-xs">
+                        <SelectValue placeholder="Select SaaS plan" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {plans.map((p) => (
+                          <SelectItem key={p.id} value={p.id}>
+                            {p.name} (₹{p.price_monthly / 100}/mo)
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
@@ -381,11 +404,12 @@ export const AdminPage: React.FC = () => {
                   </div>
 
                   <div className="flex flex-col gap-1">
-                    <Label htmlFor="oPass" className="text-xs font-semibold">Initial Password *</Label>
+                    <Label htmlFor="oPass" className="text-xs font-semibold">
+                      Initial Password <span className="text-muted-foreground font-normal">(optional — auto-generated if blank)</span>
+                    </Label>
                     <Input
                       id="oPass"
                       type="password"
-                      required
                       min={6}
                       value={ownerPassword}
                       onChange={(e) => setOwnerPassword(e.target.value)}

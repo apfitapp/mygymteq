@@ -4,7 +4,7 @@ import { PlanRepository } from '../repositories/plan.repository';
 import { PaymentRepository } from '../repositories/payment.repository';
 import { AttendanceRepository } from '../repositories/attendance.repository';
 import { NotificationService } from '../lib/notifications';
-import { Member, Membership, Payment, Attendance, PaymentMode } from '@gym/shared';
+import { Member, Membership, Payment, Attendance, PaymentMode } from '@gymtech/shared';
 
 export class MemberService {
   private memberRepo: MemberRepository;
@@ -44,7 +44,22 @@ export class MemberService {
     paymentMode?: PaymentMode;
     referenceId?: string;
   }) {
-    // 1. Validate Membership Plan
+    // 1. Enforce Commercial License Limits (e.g. up to 100 on Starter)
+    const license = await this.db
+      .prepare('SELECT max_members FROM licenses WHERE gym_id = ? AND status = "ACTIVE"')
+      .bind(this.gymId)
+      .first<{ max_members: number }>();
+
+    if (license && license.max_members > 0) {
+      const activeCount = await this.memberRepo.countActive();
+      if (activeCount >= license.max_members) {
+        throw new Error(
+          `Commercial plan limit reached (maximum ${license.max_members} active members). Please upgrade your platform subscription to enroll more members.`
+        );
+      }
+    }
+
+    // 2. Validate Membership Plan
     const plan = await this.planRepo.findById(data.planId);
     if (!plan) {
       throw new Error('Selected membership plan does not exist or is inactive');

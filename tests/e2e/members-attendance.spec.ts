@@ -131,28 +131,6 @@ test.describe('Gym SaaS — Operations & Member Workflows', () => {
       });
     });
 
-    await page.route('**/api/attendance?*', async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          logs: [
-            {
-              id: 'att_1',
-              member_id: 'mem_1001',
-              first_name: 'Rahul',
-              last_name: 'Sharma',
-              member_code: 'MEM-1001',
-              phone: '9876543210',
-              check_in_time: Math.floor(Date.now() / 1000) - 1800,
-              date_key: '2026-08-28',
-              method: 'MANUAL',
-            },
-          ],
-        }),
-      });
-    });
-
     await page.route('**/api/attendance', async (route) => {
       await route.fulfill({
         status: 200,

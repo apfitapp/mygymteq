@@ -34,6 +34,10 @@ import {
   PtCollection,
   PtSummary,
   InvoiceData,
+  NotificationSettingsRequest,
+  NotificationSettingsResponse,
+  TestSmtpRequest,
+  SmtpSettings,
 } from '@gymtech/shared';
 
 const API_BASE_URL =
@@ -238,9 +242,36 @@ class ApiClient {
     });
   }
 
+  // Notification Settings
+  async getNotificationSettings(): Promise<NotificationSettingsResponse> {
+    return this.request<NotificationSettingsResponse>('/api/settings/notifications');
+  }
+
+  async updateNotificationSettings(
+    payload: NotificationSettingsRequest
+  ): Promise<NotificationSettingsResponse> {
+    return this.request<NotificationSettingsResponse>('/api/settings/notifications', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async testSmtp(payload: TestSmtpRequest): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>('/api/settings/smtp/test', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
   // Reports
-  async getReports(): Promise<{ metrics: DashboardMetrics; planBreakdown: any[] }> {
-    return this.request<{ metrics: DashboardMetrics; planBreakdown: any[] }>('/api/reports');
+  async getReports(period: 'month' | 'quarter' | 'year' = 'month'): Promise<{
+    metrics: DashboardMetrics;
+    period: string;
+    periodRevenue: number;
+    periodPaymentCount: number;
+    planBreakdown: any[];
+  }> {
+    return this.request(`/api/reports?period=${period}`);
   }
 
   async getInvoice(paymentId: string): Promise<InvoiceData> {

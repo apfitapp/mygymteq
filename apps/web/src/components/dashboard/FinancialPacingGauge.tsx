@@ -3,6 +3,17 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Target, TrendingUp, IndianRupee, ArrowUpRight, CheckCircle2 } from 'lucide-react';
 
+const getProgressWidthClass = (pct: number) => {
+  const step = Math.min(100, Math.max(0, Math.round(pct / 5) * 5));
+  const widths: Record<number, string> = {
+    0: 'w-0', 5: 'w-[5%]', 10: 'w-[10%]', 15: 'w-[15%]', 20: 'w-[20%]',
+    25: 'w-[25%]', 30: 'w-[30%]', 35: 'w-[35%]', 40: 'w-[40%]', 45: 'w-[45%]',
+    50: 'w-[50%]', 55: 'w-[55%]', 60: 'w-[60%]', 65: 'w-[65%]', 70: 'w-[70%]',
+    75: 'w-[75%]', 80: 'w-[80%]', 85: 'w-[85%]', 90: 'w-[90%]', 95: 'w-[95%]', 100: 'w-full'
+  };
+  return widths[step] || 'w-0';
+};
+
 interface FinancialPacingProps {
   currentRevenue?: number;
   monthlyTarget?: number;
@@ -49,9 +60,8 @@ export const FinancialPacingGauge: React.FC<FinancialPacingProps> = ({
           {/* Progress Bar */}
           <div className="h-2.5 w-full rounded-full bg-secondary overflow-hidden p-0.5 border border-border">
             <div
-              className="h-full rounded-full bg-primary transition-all duration-500"
-              style={{ width: `${percentage}%` }}
-            ></div>
+              className={`h-full rounded-full bg-primary transition-all duration-500 ${getProgressWidthClass(percentage)}`}
+            />
           </div>
         </div>
 

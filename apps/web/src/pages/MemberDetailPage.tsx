@@ -27,6 +27,7 @@ import { EditMemberDialog } from '@/components/members/EditMemberDialog';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
+import { formatCurrency, buildWhatsAppUrl } from '@/lib/utils';
 
 export const MemberDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -35,6 +36,7 @@ export const MemberDetailPage: React.FC = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const canManage = user?.role === 'OWNER' || user?.role === 'MANAGER';
+  const canStaff = user?.role === 'OWNER' || user?.role === 'MANAGER' || user?.role === 'STAFF';
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', id],
@@ -61,10 +63,6 @@ export const MemberDetailPage: React.FC = () => {
   const payments = data?.payments || [];
   const attendance = data?.attendance || [];
 
-  const formatCurrency = (paise: number) => {
-    return `₹${((paise || 0) / 100).toLocaleString('en-IN')}`;
-  };
-
   if (isLoading) {
     return (
       <AppShell title="Member Profile" breadcrumb="Members">
@@ -87,9 +85,7 @@ export const MemberDetailPage: React.FC = () => {
   }
 
   const initials = `${member.first_name?.[0] || 'M'}${member.last_name ? member.last_name[0] : ''}`.toUpperCase();
-  const cleanPhone = (member.phone || '').replace(/\D/g, '');
-  const waPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-  const whatsappChatUrl = `https://wa.me/${waPhone}?text=${encodeURIComponent(`Hello ${member.first_name}, greeting from the gym!`)}`;
+  const whatsappChatUrl = buildWhatsAppUrl(member.phone, `Hello ${member.first_name}, greeting from the gym!`);
 
   return (
     <AppShell title={`${member.first_name} ${member.last_name || ''}`} breadcrumb="Members">
@@ -129,15 +125,17 @@ export const MemberDetailPage: React.FC = () => {
             </div>
 
             <div className="flex flex-wrap items-center gap-2.5">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsEditOpen(true)}
-                className="text-xs h-9 font-semibold gap-1.5 border-border hover:bg-secondary"
-              >
-                <Pencil className="size-3.5" />
-                <span>Edit Profile</span>
-              </Button>
+              {canStaff && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsEditOpen(true)}
+                  className="text-xs h-9 font-semibold gap-1.5 border-border hover:bg-secondary"
+                >
+                  <Pencil className="size-3.5" />
+                  <span>Edit Profile</span>
+                </Button>
+              )}
 
               <Button asChild variant="outline" size="sm" className="text-xs h-9 text-[#25D366] hover:text-[#20BA5A] border-[#25D366]/30">
                 <a href={whatsappChatUrl} target="_blank" rel="noopener noreferrer">
@@ -169,11 +167,13 @@ export const MemberDetailPage: React.FC = () => {
                 </Button>
               )}
 
-              <Button asChild size="sm" className="bg-primary text-primary-foreground font-bold text-xs h-9">
-                <a href={`#/members/${member.id}/renew`}>
-                  <RefreshCw className="size-3.5 mr-1.5" /> Renew Plan
-                </a>
-              </Button>
+              {canStaff && (
+                <Button asChild size="sm" className="bg-primary text-primary-foreground font-bold text-xs h-9">
+                  <a href={`#/members/${member.id}/renew`}>
+                    <RefreshCw className="size-3.5 mr-1.5" /> Renew Plan
+                  </a>
+                </Button>
+              )}
             </div>
           </div>
         </Card>

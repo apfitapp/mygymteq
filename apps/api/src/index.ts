@@ -1,10 +1,11 @@
 import { NativeRouter, Env, RequestContext } from './router/router';
 import { json, errorResponse } from './lib/response';
-import { verifySessionToken, hashPassword } from './lib/session';
+import { verifySessionToken, hashPassword, hasAllowedRole } from './lib/session';
 import { AuthService } from './services/auth.service';
 import { MemberService } from './services/member.service';
 import { DashboardService } from './services/dashboard.service';
 import { MemberRepository } from './repositories/member.repository';
+import { MembershipRepository } from './repositories/membership.repository';
 import { PaymentRepository } from './repositories/payment.repository';
 import { AttendanceRepository } from './repositories/attendance.repository';
 import { PlanRepository } from './repositories/plan.repository';
@@ -13,6 +14,13 @@ import { AdminRepository } from './repositories/admin.repository';
 import { NotificationService } from './lib/notifications';
 import { EmailService } from './lib/email.service';
 import { verifyTurnstileToken } from './lib/turnstile';
+import {
+  calculatePtCommission,
+  calculateFreezeExtension,
+  isCheckInBlocked,
+  splitGstInclusiveAmount,
+  isWithinLicenseLimit,
+} from './lib/calculations';
 import {
   LoginRequestSchema,
   MemberLoginRequestSchema,
@@ -31,7 +39,10 @@ import {
   FreezeMemberRequestSchema,
   RecordPtCollectionRequestSchema,
   SettlePtCommissionRequestSchema,
+  NotificationSettingsRequestSchema,
+  TestSmtpRequestSchema,
 } from '@gymtech/shared';
+import type { NotificationSettingsResponse } from '@gymtech/shared';
 
 const router = new NativeRouter();
 
@@ -72,6 +83,17 @@ async function requireSuperAdmin(req: Request, ctx: RequestContext): Promise<Res
 
   if (ctx.user?.role !== 'SUPER_ADMIN') {
     return errorResponse('Platform Super Admin privileges required', 403);
+  }
+  return null;
+}
+
+// Restricts an endpoint to specific staff roles within the gym tenant.
+async function requireRoles(req: Request, ctx: RequestContext, roles: string[]): Promise<Response | null> {
+  const gymErr = await requireGymContext(req, ctx);
+  if (gymErr) return gymErr;
+
+  if (!hasAllowedRole(ctx.user?.role, roles)) {
+    return errorResponse('You do not have permission to perform this action', 403);
   }
   return null;
 }
@@ -271,6 +293,21 @@ router.post('/api/auth/forgot-password', async (req, ctx) => {
   const token = `${crypto.randomUUID().replace(/-/g, '')}${crypto.randomUUID().replace(/-/g, '')}`;
   const resetId = `pr_${crypto.randomUUID().slice(0, 8)}`;
 
+  // Ensure password_resets table exists
+  await ctx.env.DB.exec(`
+    CREATE TABLE IF NOT EXISTS password_resets (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      email TEXT NOT NULL,
+      token TEXT NOT NULL UNIQUE,
+      expires_at INTEGER NOT NULL,
+      used_at INTEGER,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+    CREATE INDEX IF NOT EXISTS idx_password_resets_token ON password_resets(token);
+    CREATE INDEX IF NOT EXISTS idx_password_resets_email ON password_resets(email);
+  `).catch(() => {});
+
   // Store in database with 1-hour expiration
   await ctx.env.DB
     .prepare(`
@@ -302,6 +339,19 @@ router.post('/api/auth/reset-password', async (req, ctx) => {
   }
 
   const { token, newPassword } = parseResult.data;
+  
+  // Ensure password_resets table exists
+  await ctx.env.DB.exec(`
+    CREATE TABLE IF NOT EXISTS password_resets (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      email TEXT NOT NULL,
+      token TEXT NOT NULL UNIQUE,
+      expires_at INTEGER NOT NULL,
+      used_at INTEGER,
+      created_at INTEGER NOT NULL DEFAULT (unixepoch())
+    );
+  `).catch(() => {});
 
   // Validate reset token
   const resetRecord = await ctx.env.DB
@@ -490,8 +540,8 @@ router.post('/api/members/:id/renew', async (req, ctx) => {
 // ==========================================
 
 router.post('/api/members/:id/freeze', async (req, ctx) => {
-  const gymErr = await requireGymContext(req, ctx);
-  if (gymErr) return gymErr;
+  const roleErr = await requireRoles(req, ctx, ['OWNER', 'MANAGER']);
+  if (roleErr) return roleErr;
 
   const body = await req.json().catch(() => ({}));
   const parseResult = FreezeMemberRequestSchema.safeParse(body);
@@ -536,8 +586,8 @@ router.post('/api/members/:id/freeze', async (req, ctx) => {
 });
 
 router.post('/api/members/:id/unfreeze', async (req, ctx) => {
-  const gymErr = await requireGymContext(req, ctx);
-  if (gymErr) return gymErr;
+  const roleErr = await requireRoles(req, ctx, ['OWNER', 'MANAGER']);
+  if (roleErr) return roleErr;
 
   const member: any = await ctx.env.DB.prepare(
     'SELECT * FROM members WHERE id = ? AND gym_id = ? AND deleted_at IS NULL'
@@ -556,8 +606,12 @@ router.post('/api/members/:id/unfreeze', async (req, ctx) => {
   let extendedTo: number | null = null;
   if (frozenMs) {
     // Extend expiry by the exact frozen duration so paid days are never lost
-    const frozenDuration = Math.max(0, nowSec - (frozenMs.frozen_at || nowSec));
-    extendedTo = frozenMs.end_date + frozenDuration;
+    const { extendedTo: newEndDate } = calculateFreezeExtension(
+      frozenMs.end_date,
+      frozenMs.frozen_at || nowSec,
+      nowSec
+    );
+    extendedTo = newEndDate;
     await ctx.env.DB.prepare(`
       UPDATE memberships SET status = 'ACTIVE', end_date = ?, frozen_at = NULL, updated_at = unixepoch()
       WHERE id = ? AND gym_id = ?
@@ -593,8 +647,8 @@ router.get('/api/plans', async (req, ctx) => {
 });
 
 router.post('/api/plans', async (req, ctx) => {
-  const gymErr = await requireGymContext(req, ctx);
-  if (gymErr) return gymErr;
+  const roleErr = await requireRoles(req, ctx, ['OWNER', 'MANAGER']);
+  if (roleErr) return roleErr;
 
   const body = await req.json().catch(() => ({}));
   const parseResult = CreatePlanRequestSchema.safeParse(body);
@@ -675,6 +729,12 @@ router.post('/api/payments', async (req, ctx) => {
     notes: parseResult.data.notes || null,
   });
 
+  // Keep membership paid/due amounts in sync with this payment
+  if (parseResult.data.membershipId) {
+    const membershipRepo = new MembershipRepository(ctx.env.DB, ctx.gymId!);
+    await membershipRepo.updatePaymentProgress(parseResult.data.membershipId, amountPaise);
+  }
+
   const notif = new NotificationService('Our Gym');
   const whatsappUrl = notif.generateWhatsAppUrl({
     recipientPhone: member.phone,
@@ -713,9 +773,7 @@ router.get('/api/payments/:id/invoice', async (req, ctx) => {
 
   // GST structure: amounts are stored tax-inclusive. Split into taxable + CGST/SGST.
   const taxPercentage = Number(payment.plan_tax_percentage || 0);
-  const taxableAmount =
-    taxPercentage > 0 ? Math.round(payment.amount / (1 + taxPercentage / 100)) : payment.amount;
-  const taxAmount = payment.amount - taxableAmount;
+  const { taxableAmount, taxAmount, cgst, sgst } = splitGstInclusiveAmount(payment.amount, taxPercentage);
 
   return json({
     receiptNumber: payment.receipt_number,
@@ -793,10 +851,14 @@ router.post('/api/attendance/check-in', async (req, ctx) => {
   `).bind(member.id, ctx.gymId!).first();
 
   const nowSec = Math.floor(Date.now() / 1000);
-  const isExpired = !activeMembership || activeMembership.end_date < nowSec || activeMembership.status === 'EXPIRED';
-  const isFrozenOrCancelled = member.status === 'FROZEN' || member.status === 'CANCELLED';
+  const blocked = isCheckInBlocked({
+    memberStatus: member.status,
+    membershipEndDate: activeMembership ? activeMembership.end_date : null,
+    membershipStatus: activeMembership ? activeMembership.status : null,
+    nowSec,
+  });
 
-  if (isExpired || isFrozenOrCancelled) {
+  if (blocked) {
     // Auto-freeze member and membership in database if not already updated
     if (member.status === 'ACTIVE') {
       await ctx.env.DB.prepare(`
@@ -867,8 +929,9 @@ router.get('/api/staff', async (req, ctx) => {
 });
 
 router.post('/api/staff', async (req, ctx) => {
-  const gymErr = await requireGymContext(req, ctx);
-  if (gymErr) return gymErr;
+  // Only owners/managers may create new staff accounts (prevents privilege escalation by front-desk/trainer roles)
+  const roleErr = await requireRoles(req, ctx, ['OWNER', 'MANAGER']);
+  if (roleErr) return roleErr;
 
   const body = await req.json().catch(() => ({}));
   const parseResult = CreateStaffRequestSchema.safeParse(body);
@@ -890,7 +953,7 @@ router.post('/api/staff', async (req, ctx) => {
 
   if (license && license.max_staff > 0) {
     const existingStaff = await userRepo.listGymStaff(ctx.gymId!);
-    if (existingStaff.length >= license.max_staff) {
+    if (!isWithinLicenseLimit(existingStaff.length, license.max_staff)) {
       return errorResponse(
         `Commercial plan limit reached (maximum ${license.max_staff} staff accounts). Please upgrade your platform subscription to add more staff.`,
         403
@@ -916,6 +979,79 @@ router.post('/api/staff', async (req, ctx) => {
 });
 
 // ==========================================
+// NOTIFICATION SETTINGS
+// ==========================================
+
+const DEFAULT_NOTIFICATION_SETTINGS: NotificationSettingsResponse = {
+  reminderDays: 7,
+  welcomeEnabled: true,
+  receiptEnabled: true,
+  expiryEnabled: true,
+};
+
+router.get('/api/settings/notifications', async (req, ctx) => {
+  const gymErr = await requireGymContext(req, ctx);
+  if (gymErr) return gymErr;
+
+  const gym = await ctx.env.DB
+    .prepare('SELECT notification_settings_json FROM gyms WHERE id = ?')
+    .bind(ctx.gymId!)
+    .first<{ notification_settings_json: string | null }>();
+
+  const saved = gym?.notification_settings_json ? JSON.parse(gym.notification_settings_json) : {};
+  return json({ ...DEFAULT_NOTIFICATION_SETTINGS, ...saved });
+});
+
+router.put('/api/settings/notifications', async (req, ctx) => {
+  // Notification preferences affect billing/communication for the whole gym; restrict to owners/managers
+  const roleErr = await requireRoles(req, ctx, ['OWNER', 'MANAGER']);
+  if (roleErr) return roleErr;
+
+  const body = await req.json().catch(() => ({}));
+  const parseResult = NotificationSettingsRequestSchema.safeParse(body);
+  if (!parseResult.success) {
+    return errorResponse(parseResult.error.errors[0]?.message || 'Invalid notification settings payload', 400);
+  }
+
+  await ctx.env.DB
+    .prepare('UPDATE gyms SET notification_settings_json = ?, updated_at = unixepoch() WHERE id = ?')
+    .bind(JSON.stringify(parseResult.data), ctx.gymId!)
+    .run();
+
+  return json(parseResult.data);
+});
+
+router.post('/api/settings/smtp/test', async (req, ctx) => {
+  const roleErr = await requireRoles(req, ctx, ['OWNER', 'MANAGER']);
+  if (roleErr) return roleErr;
+
+  const body = await req.json().catch(() => ({}));
+  const parseResult = TestSmtpRequestSchema.safeParse(body);
+  if (!parseResult.success) {
+    return errorResponse(parseResult.error.errors[0]?.message || 'Invalid SMTP test payload', 400);
+  }
+
+  const { smtp, testRecipient } = parseResult.data;
+
+  // Retrieve gym info for branding
+  const gym = await ctx.env.DB
+    .prepare('SELECT name FROM gyms WHERE id = ?')
+    .bind(ctx.gymId!)
+    .first<{ name: string }>();
+
+  const emailService = new EmailService(ctx.env);
+  const result = await emailService.sendTestSmtpEmail({
+    to: testRecipient,
+    gymName: gym?.name || 'Your Gym',
+    smtpHost: smtp.host || 'smtp.custom-relay.net',
+    smtpPort: smtp.port || 587,
+    provider: smtp.provider,
+  });
+
+  return json(result);
+});
+
+// ==========================================
 // PT COLLECTIONS & COMMISSIONS
 // ==========================================
 
@@ -923,7 +1059,8 @@ router.get('/api/pt/collections', async (req, ctx) => {
   const gymErr = await requireGymContext(req, ctx);
   if (gymErr) return gymErr;
 
-  const trainerId = ctx.query.get('trainerId') || undefined;
+  // Trainers can only ever see their own PT collections, regardless of the trainerId query param
+  const trainerId = ctx.user!.role === 'TRAINER' ? ctx.user!.id : ctx.query.get('trainerId') || undefined;
   const limit = Math.min(parseInt(ctx.query.get('limit') || '100', 10), 500);
 
   let sql = `
@@ -951,15 +1088,25 @@ router.get('/api/pt/summary', async (req, ctx) => {
   const gymErr = await requireGymContext(req, ctx);
   if (gymErr) return gymErr;
 
-  const totals: any = await ctx.env.DB.prepare(`
-    SELECT 
-      COALESCE(SUM(amount), 0) as total_collected,
-      COALESCE(SUM(CASE WHEN commission_status = 'PENDING' THEN commission_amount END), 0) as commission_pending,
-      COALESCE(SUM(CASE WHEN commission_status = 'PAID' THEN commission_amount END), 0) as commission_paid
-    FROM pt_collections WHERE gym_id = ?
-  `).bind(ctx.gymId!).first();
+  // Trainers may only see their own commission totals, not the earnings of other trainers
+  const isTrainer = ctx.user!.role === 'TRAINER';
+  const totalsSql = isTrainer
+    ? `SELECT 
+         COALESCE(SUM(amount), 0) as total_collected,
+         COALESCE(SUM(CASE WHEN commission_status = 'PENDING' THEN commission_amount END), 0) as commission_pending,
+         COALESCE(SUM(CASE WHEN commission_status = 'PAID' THEN commission_amount END), 0) as commission_paid
+       FROM pt_collections WHERE gym_id = ? AND trainer_id = ?`
+    : `SELECT 
+         COALESCE(SUM(amount), 0) as total_collected,
+         COALESCE(SUM(CASE WHEN commission_status = 'PENDING' THEN commission_amount END), 0) as commission_pending,
+         COALESCE(SUM(CASE WHEN commission_status = 'PAID' THEN commission_amount END), 0) as commission_paid
+       FROM pt_collections WHERE gym_id = ?`;
+  const totalsStmt = isTrainer
+    ? ctx.env.DB.prepare(totalsSql).bind(ctx.gymId!, ctx.user!.id)
+    : ctx.env.DB.prepare(totalsSql).bind(ctx.gymId!);
+  const totals: any = await totalsStmt.first();
 
-  const byTrainer = await ctx.env.DB.prepare(`
+  const byTrainerSql = `
     SELECT 
       pt.trainer_id,
       COALESCE(u.name, 'Unknown Trainer') as trainer_name,
@@ -969,10 +1116,14 @@ router.get('/api/pt/summary', async (req, ctx) => {
       COALESCE(SUM(CASE WHEN pt.commission_status = 'PAID' THEN pt.commission_amount END), 0) as commission_paid
     FROM pt_collections pt
     LEFT JOIN users u ON u.id = pt.trainer_id
-    WHERE pt.gym_id = ?
+    WHERE pt.gym_id = ?${isTrainer ? ' AND pt.trainer_id = ?' : ''}
     GROUP BY pt.trainer_id
     ORDER BY collected DESC
-  `).bind(ctx.gymId!).all();
+  `;
+  const byTrainerStmt = isTrainer
+    ? ctx.env.DB.prepare(byTrainerSql).bind(ctx.gymId!, ctx.user!.id)
+    : ctx.env.DB.prepare(byTrainerSql).bind(ctx.gymId!);
+  const byTrainer = await byTrainerStmt.all();
 
   return json({
     totalCollected: totals?.total_collected || 0,
@@ -996,13 +1147,15 @@ router.post('/api/pt/collections', async (req, ctx) => {
   const member = await memberRepo.findById(parseResult.data.memberId);
   if (!member) return errorResponse('Member not found', 404);
 
+  // Trainers can only record collections against themselves, never on behalf of another trainer
+  const trainerId = ctx.user!.role === 'TRAINER' ? ctx.user!.id : parseResult.data.trainerId;
   const trainer: any = await ctx.env.DB.prepare(
     "SELECT id, name FROM users WHERE id = ? AND gym_id = ? AND role IN ('TRAINER', 'OWNER', 'MANAGER') AND deleted_at IS NULL"
-  ).bind(parseResult.data.trainerId, ctx.gymId!).first();
+  ).bind(trainerId, ctx.gymId!).first();
   if (!trainer) return errorResponse('Trainer not found in this gym', 404);
 
   const amountPaise = Math.round(parseResult.data.amount * 100);
-  const commissionAmount = Math.round(amountPaise * (parseResult.data.commissionPercentage / 100));
+  const commissionAmount = calculatePtCommission(amountPaise, parseResult.data.commissionPercentage);
   const paymentTimestamp = parseResult.data.paymentDate
     ? Math.floor(new Date(parseResult.data.paymentDate).getTime() / 1000)
     : Math.floor(Date.now() / 1000);
@@ -1021,7 +1174,7 @@ router.post('/api/pt/collections', async (req, ctx) => {
     id,
     ctx.gymId!,
     parseResult.data.memberId,
-    parseResult.data.trainerId,
+    trainerId,
     parseResult.data.sessions,
     amountPaise,
     parseResult.data.commissionPercentage,
@@ -1037,8 +1190,9 @@ router.post('/api/pt/collections', async (req, ctx) => {
 });
 
 router.post('/api/pt/collections/:id/settle', async (req, ctx) => {
-  const gymErr = await requireGymContext(req, ctx);
-  if (gymErr) return gymErr;
+  // Settling a commission payout is a financial control action restricted to owners/managers
+  const roleErr = await requireRoles(req, ctx, ['OWNER', 'MANAGER']);
+  if (roleErr) return roleErr;
 
   const body = await req.json().catch(() => ({}));
   const parseResult = SettlePtCommissionRequestSchema.safeParse(body);
@@ -1066,24 +1220,42 @@ router.get('/api/reports', async (req, ctx) => {
   const gymErr = await requireGymContext(req, ctx);
   if (gymErr) return gymErr;
 
+  const period = (ctx.query.get('period') || 'month') as 'month' | 'quarter' | 'year';
+  const now = new Date();
+  const nowSec = Math.floor(now.getTime() / 1000);
+  const periodStart =
+    period === 'quarter'
+      ? nowSec - 90 * 86400
+      : period === 'year'
+        ? Math.floor(new Date(now.getFullYear(), 0, 1).getTime() / 1000)
+        : Math.floor(new Date(now.getFullYear(), now.getMonth(), 1).getTime() / 1000);
+
   const dashboardService = new DashboardService(ctx.env.DB, ctx.gymId!);
   const metrics = await dashboardService.getMetrics();
+
+  const periodRevenueRes = await ctx.env.DB.prepare(`
+    SELECT COALESCE(SUM(amount), 0) as revenue, COUNT(*) as payment_count
+    FROM payments WHERE gym_id = ? AND status = 'COMPLETED' AND payment_date >= ?
+  `).bind(ctx.gymId!, periodStart).first<{ revenue: number; payment_count: number }>();
 
   const planBreakdownRes = await ctx.env.DB.prepare(`
     SELECT mp.name, COUNT(DISTINCT m.id) as count, SUM(ms.final_amount) as revenue
     FROM membership_plans mp
-    LEFT JOIN memberships ms ON ms.membership_plan_id = mp.id AND ms.gym_id = ?
+    LEFT JOIN memberships ms ON ms.membership_plan_id = mp.id AND ms.gym_id = ? AND ms.start_date >= ?
     LEFT JOIN members m ON ms.member_id = m.id AND m.gym_id = ?
     WHERE mp.gym_id = ? AND mp.is_active = 1
     GROUP BY mp.id, mp.name
     ORDER BY revenue DESC
     LIMIT 8
   `)
-    .bind(ctx.gymId, ctx.gymId, ctx.gymId)
+    .bind(ctx.gymId, periodStart, ctx.gymId, ctx.gymId)
     .all();
 
   return json({
     metrics,
+    period,
+    periodRevenue: periodRevenueRes?.revenue || 0,
+    periodPaymentCount: periodRevenueRes?.payment_count || 0,
     planBreakdown: planBreakdownRes.results || [],
   });
 });

@@ -286,4 +286,60 @@ export class EmailService {
       html,
     });
   }
+
+  async sendTestSmtpEmail(params: {
+    to: string;
+    gymName: string;
+    smtpHost: string;
+    smtpPort: number;
+    provider: string;
+  }): Promise<{ success: boolean; message: string }> {
+    const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f8fafc; margin: 0; padding: 40px 20px; }
+    .container { max-width: 540px; margin: 0 auto; background: #ffffff; border-radius: 8px; border: 1px solid #e2e8f0; padding: 32px; }
+    .logo { font-size: 22px; font-weight: 800; color: #10B981; }
+    .badge { display: inline-block; background: #ecfdf5; color: #047857; font-family: monospace; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 4px; margin: 12px 0; border: 1px solid #a7f3d0; }
+    .title { font-size: 18px; font-weight: 700; color: #1e293b; margin-top: 12px; }
+    .desc { font-size: 14px; color: #64748b; line-height: 1.6; }
+    .details { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 14px; margin: 16px 0; font-family: monospace; font-size: 12px; color: #334155; }
+    .footer { font-size: 12px; color: #94a3b8; text-align: center; margin-top: 28px; border-top: 1px solid #f1f5f9; padding-top: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">${params.gymName || 'GymTech'}</div>
+    <div><span class="badge">SMTP CONNECTION VERIFIED ✓</span></div>
+    <div class="title">Test Email Successful! 🎉</div>
+    <p class="desc">Your custom email server relay is configured properly. Automated receipts, membership expiry reminders, and reset links will now dispatch through your configured mail server.</p>
+    <div class="details">
+      <div><strong>Relay Host:</strong> ${params.smtpHost || 'Standard Relay'}</div>
+      <div><strong>Port:</strong> ${params.smtpPort}</div>
+      <div><strong>Provider:</strong> ${params.provider}</div>
+      <div><strong>Dispatched At:</strong> ${new Date().toUTCString()}</div>
+    </div>
+    <div class="footer">
+      Delivered by GymTech SMTP Engine &bull; ${params.gymName}
+    </div>
+  </div>
+</body>
+</html>
+`;
+
+    await this.sendEmail({
+      to: params.to,
+      subject: `[SMTP Test] Verification email for ${params.gymName || 'GymTech'}`,
+      html,
+    });
+
+    return {
+      success: true,
+      message: `Test email successfully dispatched to ${params.to}!`,
+    };
+  }
 }
+

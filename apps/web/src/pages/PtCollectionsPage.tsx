@@ -28,8 +28,8 @@ import {
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
+import { formatCurrency } from '@/lib/utils';
 
-const formatCurrency = (paise: number) => `₹${((paise || 0) / 100).toLocaleString('en-IN')}`;
 
 export const PtCollectionsPage: React.FC = () => {
   const { user } = useAuth();

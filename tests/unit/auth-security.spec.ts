@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { hashPassword, createSessionToken, verifySessionToken } from '../../apps/api/src/lib/session';
+import { hashPassword, createSessionToken, verifySessionToken, hasAllowedRole } from '../../apps/api/src/lib/session';
 
 describe('Auth & Cryptographic Security', () => {
   const secret = 'test-secret-key-12345678901234567890';
@@ -84,5 +84,33 @@ describe('Auth & Cryptographic Security', () => {
     const tamperedToken = `${parts[0]}.${tamperedPayload}.${parts[2]}`;
     const verified = await verifySessionToken(tamperedToken, secret);
     expect(verified).toBeNull();
+  });
+
+  describe('Role-Based Access Control (RBAC)', () => {
+    it('allows OWNER and MANAGER on management-only operations', () => {
+      const allowedRoles = ['OWNER', 'MANAGER'];
+
+      expect(hasAllowedRole('OWNER', allowedRoles)).toBe(true);
+      expect(hasAllowedRole('MANAGER', allowedRoles)).toBe(true);
+    });
+
+    it('rejects STAFF, TRAINER, and MEMBER on management-only operations (freeze, plans, staff creation)', () => {
+      const allowedRoles = ['OWNER', 'MANAGER'];
+
+      expect(hasAllowedRole('STAFF', allowedRoles)).toBe(false);
+      expect(hasAllowedRole('TRAINER', allowedRoles)).toBe(false);
+      expect(hasAllowedRole('MEMBER', allowedRoles)).toBe(false);
+      expect(hasAllowedRole(undefined, allowedRoles)).toBe(false);
+      expect(hasAllowedRole(null, allowedRoles)).toBe(false);
+    });
+
+    it('allows front desk STAFF for member management routes', () => {
+      const memberStaffRoles = ['OWNER', 'MANAGER', 'STAFF'];
+
+      expect(hasAllowedRole('OWNER', memberStaffRoles)).toBe(true);
+      expect(hasAllowedRole('MANAGER', memberStaffRoles)).toBe(true);
+      expect(hasAllowedRole('STAFF', memberStaffRoles)).toBe(true);
+      expect(hasAllowedRole('TRAINER', memberStaffRoles)).toBe(false);
+    });
   });
 });

@@ -17,6 +17,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { TrendingUp, Users, CalendarCheck, Tag, Info } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface GymAnalyticsChartsProps {
   weeklyAttendance?: { day: string; date: string; count: number; avg: number }[];
@@ -24,7 +25,8 @@ interface GymAnalyticsChartsProps {
   planDistribution?: { name: string; memberCount: number; revenue: number }[];
 }
 
-const PIE_COLORS = ['#00C96E', '#3B82F6', '#F59E0B', '#EC4899', '#8B5CF6', '#14B8A6'];
+const PIE_COLORS = ['#067A5F', '#3B82F6', '#F59E0B', '#EC4899', '#8B5CF6', '#14B8A6'];
+const PIE_COLOR_CLASSES = ['bg-primary', 'bg-blue-500', 'bg-amber-500', 'bg-pink-500', 'bg-purple-500', 'bg-teal-500'];
 
 export const GymAnalyticsCharts: React.FC<GymAnalyticsChartsProps> = ({
   weeklyAttendance = [],
@@ -124,8 +126,10 @@ export const GymAnalyticsCharts: React.FC<GymAnalyticsChartsProps> = ({
                 {planDistribution.slice(0, 4).map((plan, i) => (
                   <div key={plan.name} className="flex items-center gap-1.5 min-w-0">
                     <span
-                      className="size-2 rounded-full shrink-0"
-                      style={{ backgroundColor: PIE_COLORS[i % PIE_COLORS.length] }}
+                      className={cn(
+                        'size-2 rounded-full shrink-0',
+                        PIE_COLOR_CLASSES[i % PIE_COLOR_CLASSES.length]
+                      )}
                     />
                     <span className="text-[11px] text-foreground truncate font-medium">{plan.name}</span>
                     <span className="text-[10px] text-muted-foreground font-mono ml-auto shrink-0">

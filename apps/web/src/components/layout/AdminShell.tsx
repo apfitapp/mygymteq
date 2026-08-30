@@ -3,6 +3,7 @@ import { Shield, Building2, LogOut, Menu, X } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { ThemeToggle } from './ThemeToggle';
 import { Button } from '@/components/ui/button';
+import { Logo } from '@/components/shared/Logo';
 
 interface AdminShellProps {
   title: string;
@@ -31,7 +32,7 @@ export const AdminShell: React.FC<AdminShellProps> = ({ title, children }) => {
       >
         <div className="flex h-[var(--header-h)] items-center justify-between border-b border-border px-5">
           <div className="flex items-center gap-2.5 min-w-0">
-            <img src="/logo.png" alt="GymTech" className="h-8 w-auto rounded-xs shrink-0" />
+            <Logo size="sm" showText={false} />
             <div className="min-w-0">
               <p className="font-display text-sm font-bold text-foreground leading-tight truncate">
                 GymTech Platform

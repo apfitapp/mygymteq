@@ -3,6 +3,7 @@ import { MembershipRepository } from '../repositories/membership.repository';
 import { PaymentRepository } from '../repositories/payment.repository';
 import { AttendanceRepository } from '../repositories/attendance.repository';
 import { NotificationService } from '../lib/notifications';
+import { computeChurnRisk } from '../lib/calculations';
 import { DashboardMetrics, ExpiringMember, Payment } from '@gymtech/shared';
 
 export class DashboardService {
@@ -236,8 +237,8 @@ export class DashboardService {
       .all<any>();
 
     return (rows.results || []).map((r: any) => {
-      const lastSec = r.last_check_in ? Number(r.last_check_in) : Number(r.start_date);
-      const daysInactive = Math.max(7, Math.floor((nowSec - lastSec) / 86400));
+      const lastSec = r.last_check_in ? Number(r.last_check_in) : null;
+      const { daysInactive, riskLevel } = computeChurnRisk(lastSec, Number(r.start_date), nowSec);
       return {
         id: r.id,
         name: `${r.first_name} ${r.last_name || ''}`.trim(),
@@ -247,7 +248,7 @@ export class DashboardService {
         lastCheckIn: r.last_check_in
           ? new Date(r.last_check_in * 1000).toLocaleDateString('en-IN')
           : 'No visits yet',
-        riskLevel: daysInactive >= 14 ? 'HIGH' : 'MEDIUM',
+        riskLevel,
       };
     });
   }

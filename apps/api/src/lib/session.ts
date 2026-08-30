@@ -100,3 +100,8 @@ export async function verifySessionToken(
     return null;
   }
 }
+
+export function hasAllowedRole(userRole: string | undefined | null, allowedRoles: string[]): boolean {
+  if (!userRole) return false;
+  return allowedRoles.includes(userRole);
+}

@@ -58,7 +58,7 @@ export const App: React.FC = () => {
               <Route
                 path="/members"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['OWNER', 'MANAGER', 'STAFF']}>
                     <MembersPage />
                   </ProtectedRoute>
                 }
@@ -66,7 +66,7 @@ export const App: React.FC = () => {
               <Route
                 path="/members/new"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['OWNER', 'MANAGER', 'STAFF']}>
                     <NewMemberPage />
                   </ProtectedRoute>
                 }
@@ -74,7 +74,7 @@ export const App: React.FC = () => {
               <Route
                 path="/members/:id"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['OWNER', 'MANAGER', 'STAFF', 'TRAINER']}>
                     <MemberDetailPage />
                   </ProtectedRoute>
                 }
@@ -82,7 +82,7 @@ export const App: React.FC = () => {
               <Route
                 path="/members/:id/renew"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['OWNER', 'MANAGER', 'STAFF']}>
                     <RenewMemberPage />
                   </ProtectedRoute>
                 }
@@ -90,7 +90,7 @@ export const App: React.FC = () => {
               <Route
                 path="/payments"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['OWNER', 'MANAGER', 'STAFF']}>
                     <PaymentsPage />
                   </ProtectedRoute>
                 }
@@ -98,7 +98,7 @@ export const App: React.FC = () => {
               <Route
                 path="/pt-collections"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['OWNER', 'MANAGER', 'TRAINER']}>
                     <PtCollectionsPage />
                   </ProtectedRoute>
                 }
@@ -106,7 +106,7 @@ export const App: React.FC = () => {
               <Route
                 path="/attendance"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['OWNER', 'MANAGER', 'STAFF', 'TRAINER']}>
                     <AttendancePage />
                   </ProtectedRoute>
                 }
@@ -114,7 +114,7 @@ export const App: React.FC = () => {
               <Route
                 path="/plans"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['OWNER', 'MANAGER']}>
                     <PlansPage />
                   </ProtectedRoute>
                 }
@@ -122,7 +122,7 @@ export const App: React.FC = () => {
               <Route
                 path="/staff"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['OWNER', 'MANAGER']}>
                     <StaffPage />
                   </ProtectedRoute>
                 }
@@ -130,7 +130,7 @@ export const App: React.FC = () => {
               <Route
                 path="/reports"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['OWNER', 'MANAGER']}>
                     <ReportsPage />
                   </ProtectedRoute>
                 }
@@ -138,7 +138,7 @@ export const App: React.FC = () => {
               <Route
                 path="/settings/notifications"
                 element={
-                  <ProtectedRoute>
+                  <ProtectedRoute allowedRoles={['OWNER', 'MANAGER']}>
                     <SettingsNotificationsPage />
                   </ProtectedRoute>
                 }

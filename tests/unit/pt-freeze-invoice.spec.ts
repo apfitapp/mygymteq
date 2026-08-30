@@ -1,27 +1,31 @@
 import { describe, it, expect } from 'vitest';
+import {
+  calculatePtCommission,
+  calculateFreezeExtension,
+  isCheckInBlocked,
+  splitGstInclusiveAmount,
+} from '../../apps/api/src/lib/calculations';
 
 describe('PT Commission Calculations', () => {
   it('computes trainer commission from percentage in paise', () => {
     const amountRupees = 12000;
     const commissionPct = 30;
-
     const amountPaise = Math.round(amountRupees * 100);
-    const commissionAmount = Math.round(amountPaise * (commissionPct / 100));
 
     expect(amountPaise).toBe(1200000);
-    expect(commissionAmount).toBe(360000);
+    expect(calculatePtCommission(amountPaise, commissionPct)).toBe(360000);
   });
 
   it('handles zero commission percentage', () => {
-    const amountPaise = 500000;
-    const commissionAmount = Math.round(amountPaise * (0 / 100));
-    expect(commissionAmount).toBe(0);
+    expect(calculatePtCommission(500000, 0)).toBe(0);
   });
 
   it('caps commission percentage at 100', () => {
-    const amountPaise = 200000;
-    const pct = Math.min(100, 150);
-    expect(Math.round(amountPaise * (pct / 100))).toBe(200000);
+    expect(calculatePtCommission(200000, 150)).toBe(200000);
+  });
+
+  it('floors a negative commission percentage at 0', () => {
+    expect(calculatePtCommission(200000, -10)).toBe(0);
   });
 });
 
@@ -31,11 +35,9 @@ describe('Membership Freeze / Pause Logic', () => {
     const now = 1_800_000_000;
     const originalEnd = now + 30 * daySec; // 30 days remaining
     const frozenAt = now;
+    const resumeAt = frozenAt + 10 * daySec; // resumed 10 days later
 
-    // Resumed 10 days later
-    const resumeAt = frozenAt + 10 * daySec;
-    const frozenDuration = Math.max(0, resumeAt - frozenAt);
-    const extendedTo = originalEnd + frozenDuration;
+    const { extendedTo } = calculateFreezeExtension(originalEnd, frozenAt, resumeAt);
 
     // 30 days remaining are fully preserved
     expect(extendedTo - resumeAt).toBe(30 * daySec);
@@ -43,41 +45,59 @@ describe('Membership Freeze / Pause Logic', () => {
 
   it('never reduces the end date if freeze timestamps are equal', () => {
     const end = 1_800_000_000;
-    const frozenDuration = Math.max(0, 1_800_000_000 - 1_800_000_000);
-    expect(end + frozenDuration).toBe(end);
+    const { extendedTo } = calculateFreezeExtension(end, 1_800_000_000, 1_800_000_000);
+    expect(extendedTo).toBe(end);
   });
 
-  it('blocks check-in for frozen or expired memberships', () => {
+  it('blocks check-in for an expired membership on an otherwise active member', () => {
     const nowSec = 1_800_000_000;
-    const activeMembership = { end_date: nowSec - 100, status: 'ACTIVE' as string };
-    const member = { status: 'ACTIVE' as string };
+    const blocked = isCheckInBlocked({
+      memberStatus: 'ACTIVE',
+      membershipEndDate: nowSec - 100,
+      membershipStatus: 'ACTIVE',
+      nowSec,
+    });
+    expect(blocked).toBe(true);
+  });
 
-    const isExpired =
-      !activeMembership || activeMembership.end_date < nowSec || activeMembership.status === 'EXPIRED';
-    const isFrozenOrCancelled = member.status === 'FROZEN' || member.status === 'CANCELLED';
+  it('blocks check-in for a frozen member even with a future membership end date', () => {
+    const nowSec = 1_800_000_000;
+    const blocked = isCheckInBlocked({
+      memberStatus: 'FROZEN',
+      membershipEndDate: nowSec + 1000,
+      membershipStatus: 'ACTIVE',
+      nowSec,
+    });
+    expect(blocked).toBe(true);
+  });
 
-    expect(isExpired || isFrozenOrCancelled).toBe(true);
+  it('allows check-in for an active member with a valid, unexpired membership', () => {
+    const nowSec = 1_800_000_000;
+    const blocked = isCheckInBlocked({
+      memberStatus: 'ACTIVE',
+      membershipEndDate: nowSec + 1000,
+      membershipStatus: 'ACTIVE',
+      nowSec,
+    });
+    expect(blocked).toBe(false);
+  });
 
-    member.status = 'FROZEN';
-    activeMembership.end_date = nowSec + 1000;
-    const stillBlocked =
-      member.status === 'FROZEN' ||
-      member.status === 'CANCELLED' ||
-      activeMembership.end_date < nowSec;
-    expect(stillBlocked).toBe(true);
+  it('blocks check-in when the member has no membership record at all', () => {
+    const nowSec = 1_800_000_000;
+    const blocked = isCheckInBlocked({
+      memberStatus: 'ACTIVE',
+      membershipEndDate: null,
+      membershipStatus: null,
+      nowSec,
+    });
+    expect(blocked).toBe(true);
   });
 });
 
 describe('GST Invoice Split', () => {
   it('splits a tax-inclusive amount into taxable value + CGST/SGST', () => {
     const amount = 118000; // ₹1,180 inclusive of 18% GST
-    const taxPercentage = 18;
-
-    const taxableAmount =
-      taxPercentage > 0 ? Math.round(amount / (1 + taxPercentage / 100)) : amount;
-    const taxAmount = amount - taxableAmount;
-    const cgst = Math.round(taxAmount / 2);
-    const sgst = taxAmount - cgst;
+    const { taxableAmount, taxAmount, cgst, sgst } = splitGstInclusiveAmount(amount, 18);
 
     expect(taxableAmount).toBe(100000);
     expect(taxAmount).toBe(18000);
@@ -88,11 +108,9 @@ describe('GST Invoice Split', () => {
 
   it('returns the full amount as taxable when no GST applies', () => {
     const amount = 150000;
-    const taxPercentage = 0;
-    const taxableAmount =
-      taxPercentage > 0 ? Math.round(amount / (1 + taxPercentage / 100)) : amount;
+    const { taxableAmount, taxAmount } = splitGstInclusiveAmount(amount, 0);
 
     expect(taxableAmount).toBe(amount);
-    expect(amount - taxableAmount).toBe(0);
+    expect(taxAmount).toBe(0);
   });
 });

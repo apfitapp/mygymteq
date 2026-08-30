@@ -4,6 +4,7 @@ import { PlanRepository } from '../repositories/plan.repository';
 import { PaymentRepository } from '../repositories/payment.repository';
 import { AttendanceRepository } from '../repositories/attendance.repository';
 import { NotificationService } from '../lib/notifications';
+import { calculateMembershipFinancials, calculateMembershipEndDate, isWithinLicenseLimit } from '../lib/calculations';
 import { Member, Membership, Payment, Attendance, PaymentMode } from '@gymtech/shared';
 
 export class MemberService {
@@ -52,7 +53,7 @@ export class MemberService {
 
     if (license && license.max_members > 0) {
       const activeCount = await this.memberRepo.countActive();
-      if (activeCount >= license.max_members) {
+      if (!isWithinLicenseLimit(activeCount, license.max_members)) {
         throw new Error(
           `Commercial plan limit reached (maximum ${license.max_members} active members). Please upgrade your platform subscription to enroll more members.`
         );
@@ -91,13 +92,14 @@ export class MemberService {
 
     // 4. Calculate Dates and Financials
     const startTimestamp = joinedTimestamp;
-    const endTimestamp = startTimestamp + plan.duration_months * 30 * 86400;
+    const endTimestamp = calculateMembershipEndDate(startTimestamp, plan.duration_months);
 
-    const totalAmount = plan.price + plan.admission_fee;
-    const discountAmount = Math.max(0, (data.discountAmount || 0) * 100);
-    const finalAmount = Math.max(0, totalAmount - discountAmount);
-    const paidAmount = Math.min(finalAmount, Math.max(0, (data.initialPaymentAmount || 0) * 100));
-    const dueAmount = Math.max(0, finalAmount - paidAmount);
+    const { totalAmount, discountAmount, finalAmount, paidAmount, dueAmount } = calculateMembershipFinancials({
+      planPrice: plan.price,
+      admissionFee: plan.admission_fee,
+      discountAmount: (data.discountAmount || 0) * 100,
+      initialPaymentAmount: (data.initialPaymentAmount || 0) * 100,
+    });
 
     const membershipId = `ms_${crypto.randomUUID().slice(0, 8)}`;
 
@@ -187,12 +189,13 @@ export class MemberService {
       startTimestamp = Math.floor(Date.now() / 1000);
     }
 
-    const endTimestamp = startTimestamp + plan.duration_months * 30 * 86400;
-    const totalAmount = plan.price;
-    const discountAmount = Math.max(0, (data.discountAmount || 0) * 100);
-    const finalAmount = Math.max(0, totalAmount - discountAmount);
-    const paidAmount = Math.min(finalAmount, Math.max(0, (data.paymentAmount || 0) * 100));
-    const dueAmount = Math.max(0, finalAmount - paidAmount);
+    const endTimestamp = calculateMembershipEndDate(startTimestamp, plan.duration_months);
+    const { totalAmount, discountAmount, finalAmount, paidAmount, dueAmount } = calculateMembershipFinancials({
+      planPrice: plan.price,
+      admissionFee: 0,
+      discountAmount: (data.discountAmount || 0) * 100,
+      initialPaymentAmount: (data.paymentAmount || 0) * 100,
+    });
 
     const membershipId = `ms_${crypto.randomUUID().slice(0, 8)}`;
 

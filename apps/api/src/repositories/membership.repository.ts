@@ -1,4 +1,5 @@
 import { Membership } from '@gymtech/shared';
+import { applyPayment } from '../lib/calculations';
 
 export interface MembershipRow extends Membership {}
 
@@ -83,8 +84,11 @@ export class MembershipRepository {
 
     if (!current) return;
 
-    const newPaid = current.paid_amount + additionalPaid;
-    const newDue = Math.max(0, current.final_amount - newPaid);
+    const { paidAmount: newPaid, dueAmount: newDue } = applyPayment(
+      current.final_amount,
+      current.paid_amount,
+      additionalPaid
+    );
 
     await this.db
       .prepare(`

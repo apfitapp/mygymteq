@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { buildWhatsAppUrl } from '@/lib/utils';
 import {
   UserX,
   MessageCircle,
@@ -31,10 +32,8 @@ export const RetentionChurnRadar: React.FC<RetentionChurnRadarProps> = ({
   const [nudgedMembers, setNudgedMembers] = useState<Record<string, boolean>>({});
 
   const handleNudge = (id: string, phone: string, name: string) => {
-    const text = encodeURIComponent(
-      `Hi ${name}! We noticed you haven't visited the gym recently. We miss seeing you crush your workouts! Let us know if you need any workout advice or a session with our trainer. — Team ${gymName}`
-    );
-    window.open(`https://wa.me/91${phone}?text=${text}`, '_blank');
+    const text = `Hi ${name}! We noticed you haven't visited the gym recently. We miss seeing you crush your workouts! Let us know if you need any workout advice or a session with our trainer. — Team ${gymName}`;
+    window.open(buildWhatsAppUrl(phone, text), '_blank');
     setNudgedMembers((prev) => ({ ...prev, [id]: true }));
   };
 

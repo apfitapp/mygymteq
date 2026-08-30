@@ -1,24 +1,70 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import { MessageSquare, MessageCircle, Mail, Smartphone, CheckCircle2 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { SmtpConfigBlock } from '@/components/settings/SmtpConfigBlock';
+import { SmtpSettings } from '@gymtech/shared';
 import { useAuth } from '@/lib/auth';
+import { api } from '@/lib/api';
+
+const DEFAULT_SMTP: SmtpSettings = {
+  enabled: false,
+  provider: 'CUSTOM',
+  host: '',
+  port: 587,
+  secure: false,
+  username: '',
+  password: '',
+  fromName: '',
+  fromEmail: '',
+};
 
 export const SettingsNotificationsPage: React.FC = () => {
-  const { gym } = useAuth();
+  const { gym, user } = useAuth();
+
+  const { data } = useQuery({
+    queryKey: ['notification-settings'],
+    queryFn: () => api.getNotificationSettings(),
+  });
 
   const [reminderDays, setReminderDays] = useState(7);
   const [welcomeEnabled, setWelcomeEnabled] = useState(true);
   const [receiptEnabled, setReceiptEnabled] = useState(true);
   const [expiryEnabled, setExpiryEnabled] = useState(true);
+  const [smtp, setSmtp] = useState<SmtpSettings>(DEFAULT_SMTP);
   const [saved, setSaved] = useState(false);
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
-  };
+  useEffect(() => {
+    if (!data) return;
+    setReminderDays(data.reminderDays);
+    setWelcomeEnabled(data.welcomeEnabled);
+    setReceiptEnabled(data.receiptEnabled);
+    setExpiryEnabled(data.expiryEnabled);
+    if (data.smtp) {
+      setSmtp(data.smtp);
+    }
+  }, [data]);
+
+  const saveMutation = useMutation({
+    mutationFn: () =>
+      api.updateNotificationSettings({
+        reminderDays,
+        welcomeEnabled,
+        receiptEnabled,
+        expiryEnabled,
+        smtp,
+      }),
+    onSuccess: () => {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    },
+  });
+
+  const handleSave = () => saveMutation.mutate();
 
   return (
     <AppShell title="Notification Settings" breadcrumb="System">
@@ -36,6 +82,14 @@ export const SettingsNotificationsPage: React.FC = () => {
           <div className="p-3.5 rounded-lg border border-ok/30 bg-ok/10 text-ok text-xs font-semibold flex items-center gap-2">
             <CheckCircle2 className="size-4" /> Preferences saved successfully!
           </div>
+        )}
+
+        {saveMutation.isError && (
+          <Alert variant="destructive">
+            <AlertDescription>
+              {(saveMutation.error as Error)?.message || 'Failed to save preferences. Please try again.'}
+            </AlertDescription>
+          </Alert>
         )}
 
         {/* Primary Delivery Channel */}
@@ -162,6 +216,14 @@ export const SettingsNotificationsPage: React.FC = () => {
           </CardContent>
         </Card>
 
+        {/* Custom SMTP Configurable Block */}
+        <SmtpConfigBlock
+          smtp={smtp}
+          onChange={setSmtp}
+          userEmail={user?.email}
+          gymName={gym?.name}
+        />
+
         {/* Message Template Previews */}
         <Card className="border-border shadow-xs">
           <CardHeader className="pb-3 border-b border-border">
@@ -188,8 +250,12 @@ export const SettingsNotificationsPage: React.FC = () => {
         </Card>
 
         <div className="flex justify-end pt-2">
-          <Button onClick={handleSave} className="bg-primary text-primary-foreground font-bold text-xs h-9 px-6">
-            Save Preferences
+          <Button
+            onClick={handleSave}
+            disabled={saveMutation.isPending}
+            className="bg-primary text-primary-foreground font-bold text-xs h-9 px-6"
+          >
+            {saveMutation.isPending ? 'Saving...' : 'Save Preferences'}
           </Button>
         </div>
       </div>

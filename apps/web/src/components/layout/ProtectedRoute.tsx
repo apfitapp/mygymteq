@@ -1,17 +1,20 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
+import { UserRole } from '@gymtech/shared';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireSuperAdmin?: boolean;
   allowMember?: boolean;
+  allowedRoles?: UserRole[];
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   requireSuperAdmin = false,
   allowMember = false,
+  allowedRoles,
 }) => {
   const { user, isLoading } = useAuth();
 
@@ -41,6 +44,11 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   if (!requireSuperAdmin && user.role === 'SUPER_ADMIN') {
     return <Navigate to="/admin" replace />;
+  }
+
+  // Role authorization guard
+  if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <>{children}</>;

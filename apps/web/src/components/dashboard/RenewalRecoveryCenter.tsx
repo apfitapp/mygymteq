@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { buildWhatsAppUrl } from '@/lib/utils';
 import {
   Send,
   CheckCircle,
@@ -29,10 +30,8 @@ export const RenewalRecoveryCenter: React.FC<RenewalRecoveryCenterProps> = ({
       window.open(item.whatsapp_url, '_blank');
     } else {
       const expiryText = new Date(item.end_date * 1000).toLocaleDateString('en-IN');
-      const message = encodeURIComponent(
-        `Hi ${item.first_name}! Your membership at ${gymName} expires on ${expiryText}. Renew today to keep your workout consistency and lock in your active rate! — Team ${gymName}`
-      );
-      window.open(`https://wa.me/91${item.phone}?text=${message}`, '_blank');
+      const message = `Hi ${item.first_name}! Your membership at ${gymName} expires on ${expiryText}. Renew today to keep your workout consistency and lock in your active rate! — Team ${gymName}`;
+      window.open(buildWhatsAppUrl(item.phone, message), '_blank');
     }
     setSentMap((prev) => ({ ...prev, [item.id]: true }));
   };

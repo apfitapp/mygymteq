@@ -318,3 +318,43 @@ export const SettlePtCommissionRequestSchema = z.object({
   status: z.enum(['PAID', 'PENDING']),
 });
 export type SettlePtCommissionRequest = z.infer<typeof SettlePtCommissionRequestSchema>;
+
+// ==========================================
+// 12. NOTIFICATION & SMTP SETTINGS CONTRACTS
+// ==========================================
+
+export const SmtpSettingsSchema = z.object({
+  enabled: z.boolean().default(false),
+  provider: z.enum(['CUSTOM', 'GMAIL', 'SENDGRID', 'AWS_SES', 'BREVO', 'RESEND']).default('CUSTOM'),
+  host: z.string().optional().default(''),
+  port: z.number().int().min(1).max(65535).optional().default(587),
+  secure: z.boolean().default(false), // true = SSL (465), false = TLS/STARTTLS (587)
+  username: z.string().optional().default(''),
+  password: z.string().optional().default(''),
+  fromName: z.string().optional().default(''),
+  fromEmail: z.string().email('Valid from-email required').optional().or(z.literal('')).default(''),
+});
+export type SmtpSettings = z.infer<typeof SmtpSettingsSchema>;
+
+export const TestSmtpRequestSchema = z.object({
+  smtp: SmtpSettingsSchema,
+  testRecipient: z.string().email('Valid test recipient email required'),
+});
+export type TestSmtpRequest = z.infer<typeof TestSmtpRequestSchema>;
+
+export const NotificationSettingsRequestSchema = z.object({
+  reminderDays: z.number().int().min(1).max(30),
+  welcomeEnabled: z.boolean(),
+  receiptEnabled: z.boolean(),
+  expiryEnabled: z.boolean(),
+  smtp: SmtpSettingsSchema.optional(),
+});
+export type NotificationSettingsRequest = z.infer<typeof NotificationSettingsRequestSchema>;
+
+export interface NotificationSettingsResponse {
+  reminderDays: number;
+  welcomeEnabled: boolean;
+  receiptEnabled: boolean;
+  expiryEnabled: boolean;
+  smtp?: SmtpSettings;
+}

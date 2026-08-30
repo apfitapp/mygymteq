@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowRight, Shield, AlertCircle, Building2, Mail, CheckCircle2, KeyRound, User } from 'lucide-react';
+import { ArrowRight, AlertCircle, CheckCircle2, KeyRound, User, Lock, Mail, Building2 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,16 +15,16 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
-import { CloudflareTurnstile } from '@/components/ui/CloudflareTurnstile';
 import { api } from '@/lib/api';
+import { Logo } from '@/components/shared/Logo';
 
-type LoginRole = 'GYM' | 'MEMBER' | 'SUPER_ADMIN';
+type LoginMode = 'STAFF' | 'MEMBER';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
 
-  const [activeRole, setActiveRole] = useState<LoginRole>('GYM');
+  const [mode, setMode] = useState<LoginMode>('STAFF');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
@@ -32,7 +32,6 @@ export const LoginPage: React.FC = () => {
   const [memberIdentifier, setMemberIdentifier] = useState('');
   const [memberCode, setMemberCode] = useState('');
 
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -44,17 +43,12 @@ export const LoginPage: React.FC = () => {
   const [forgotDevUrl, setForgotDevUrl] = useState<string | null>(null);
   const [forgotError, setForgotError] = useState<string | null>(null);
 
-  const handleRoleSelect = (role: LoginRole) => {
-    setActiveRole(role);
-    setError(null);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     // 1. Member Portal Login
-    if (activeRole === 'MEMBER') {
+    if (mode === 'MEMBER') {
       if (!memberIdentifier.trim() || !memberCode.trim()) {
         setError('Please enter both your registered phone number/email and member code.');
         return;
@@ -65,7 +59,6 @@ export const LoginPage: React.FC = () => {
         const res = await api.memberLogin({
           identifier: memberIdentifier.trim(),
           codeOrPin: memberCode.trim(),
-          turnstileToken: turnstileToken || undefined,
         });
 
         localStorage.setItem('gym_token', res.token);
@@ -91,10 +84,10 @@ export const LoginPage: React.FC = () => {
       return;
     }
 
-    // 2. Staff / Admin Login
+    // 2. Staff / Admin Login (Auto-routes by role)
     setIsLoading(true);
     try {
-      await login({ email, password, turnstileToken: turnstileToken || undefined });
+      await login({ email, password });
       const savedUserStr = localStorage.getItem('gym_user');
       const savedUser = savedUserStr ? JSON.parse(savedUserStr) : null;
       if (savedUser?.role === 'SUPER_ADMIN') {
@@ -132,148 +125,67 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center px-4 py-12 bg-background text-foreground relative selection:bg-primary selection:text-primary-foreground overflow-hidden">
-      {/* Subtle Ambient Glass Glows */}
-      <div className="absolute -top-32 -left-32 size-96 rounded-full bg-primary/10 blur-[100px] pointer-events-none" />
-      <div className="absolute -bottom-32 -right-32 size-96 rounded-full bg-primary/8 blur-[100px] pointer-events-none" />
+    <div className="min-h-screen flex flex-col justify-center items-center px-4 py-12 bg-background text-foreground relative selection:bg-primary selection:text-primary-foreground overflow-hidden hero-mesh">
+      {/* Ambient Glass Glows */}
+      <div className="absolute -top-32 -left-32 size-96 rounded-full bg-primary/10 blur-[120px] pointer-events-none" />
+      <div className="absolute -bottom-32 -right-32 size-96 rounded-full bg-primary/5 blur-[120px] pointer-events-none" />
 
-      <div className="absolute top-4 right-4 z-10">
+      <div className="absolute top-5 right-5 z-20">
         <ThemeToggle />
       </div>
 
-      <div className="w-full max-w-md flex flex-col gap-5 z-10">
+      <div className="w-full max-w-md flex flex-col gap-6 z-10">
+        {/* Brand Header */}
         <div className="flex flex-col items-center text-center gap-2">
-          <img src="/logo.png" alt="GymTech" className="h-12 w-auto rounded-sm shadow-md shadow-primary/15" />
-          <h1 className="font-display text-2xl font-bold tracking-tight text-foreground">
-            Sign In to GymTech
+          <Logo size="lg" />
+          <h1 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-foreground mt-2">
+            {mode === 'STAFF' ? 'Sign In to GymTech' : 'Member Self-Service Portal'}
           </h1>
-          <p className="text-xs text-muted-foreground">
-            Enterprise management console for Gyms, Staff, Members &amp; Platform Admins
+          <p className="text-xs text-muted-foreground max-w-xs">
+            {mode === 'STAFF'
+              ? 'Enter your credentials to access your gym workspace'
+              : 'Enter your registered phone and member code to view your digital pass'}
           </p>
         </div>
 
-        {/* 3-Way Role Selector Tabs */}
-        <div className="grid grid-cols-3 p-1 bg-secondary border border-border rounded-sm">
-          <button
-            type="button"
-            onClick={() => handleRoleSelect('GYM')}
-            className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xs text-xs font-semibold transition-all duration-150 ${
-              activeRole === 'GYM'
-                ? 'bg-card text-foreground shadow-xs border border-border'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Building2 className="size-3.5 text-primary" />
-            <span>Staff Console</span>
-          </button>
+        {/* Clean Glass Sign-In Card */}
+        <Card className="glass-card shadow-2xl relative overflow-hidden border border-border rounded-2xl p-0">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent opacity-80" />
 
-          <button
-            type="button"
-            onClick={() => handleRoleSelect('MEMBER')}
-            className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xs text-xs font-semibold transition-all duration-150 ${
-              activeRole === 'MEMBER'
-                ? 'bg-card text-foreground shadow-xs border border-border'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <User className="size-3.5 text-primary" />
-            <span>Member Portal</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleRoleSelect('SUPER_ADMIN')}
-            className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xs text-xs font-semibold transition-all duration-150 ${
-              activeRole === 'SUPER_ADMIN'
-                ? 'bg-card text-foreground shadow-xs border border-border'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Shield className="size-3.5 text-destructive" />
-            <span>Super Admin</span>
-          </button>
-        </div>
-
-        {/* Squarish Glass Card with neon accent */}
-        <Card className="glass-card shadow-2xl relative overflow-hidden border border-border rounded-sm">
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-primary to-transparent opacity-90" />
-
-          <CardHeader className="pb-3 pt-5">
-            <CardTitle className="text-base font-semibold">
-              {activeRole === 'GYM'
-                ? 'Gym Staff Sign In'
-                : activeRole === 'MEMBER'
-                ? 'Member Self-Service Sign In'
-                : 'Platform Super Admin'}
-            </CardTitle>
-            <CardDescription className="text-xs">
-              {activeRole === 'GYM'
-                ? 'Access members, renewals, packages, attendance, and revenue'
-                : activeRole === 'MEMBER'
-                ? 'Access your digital QR pass, plan validity, dues, and check-in logs'
-                : 'Manage gym tenants, platform metrics, and commercial licenses'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
+          <CardContent className="p-6 sm:p-7">
             {error && (
-              <Alert variant="destructive" className="mb-4 rounded-sm">
+              <Alert variant="destructive" className="mb-5 rounded-lg border border-destructive/30 bg-destructive/10">
                 <AlertCircle className="size-4" />
                 <AlertDescription className="text-xs">{error}</AlertDescription>
               </Alert>
             )}
 
-            <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
-              {activeRole === 'MEMBER' ? (
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              {mode === 'STAFF' ? (
                 <>
                   <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="memberIdentifier" className="text-xs font-semibold">
-                      Registered Phone Number or Email
+                    <Label htmlFor="email" className="text-xs font-semibold text-foreground">
+                      Work Email
                     </Label>
-                    <Input
-                      id="memberIdentifier"
-                      required
-                      value={memberIdentifier}
-                      onChange={(e) => setMemberIdentifier(e.target.value)}
-                      placeholder="e.g. 9876543210 or rahul@gmail.com"
-                      className="font-mono text-xs rounded-sm h-9 bg-card/70"
-                    />
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="memberCode" className="text-xs font-semibold">
-                      Member Code / Pass ID
-                    </Label>
-                    <Input
-                      id="memberCode"
-                      required
-                      value={memberCode}
-                      onChange={(e) => setMemberCode(e.target.value)}
-                      placeholder="e.g. MEM-1001"
-                      className="font-mono text-xs rounded-sm h-9 bg-card/70 uppercase"
-                    />
-                    <span className="text-[10px] text-muted-foreground font-mono">
-                      Your unique member code is provided on enrollment receipts.
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="email" className="text-xs font-semibold">Email Address</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="admin@yourgym.com"
-                      className="font-mono text-xs rounded-sm h-9 bg-card/70"
-                    />
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                      <Input
+                        id="email"
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="you@yourgym.com"
+                        className="pl-9 text-xs rounded-lg h-10 bg-secondary/40 border-border focus-visible:ring-primary font-sans"
+                      />
+                    </div>
                   </div>
 
                   <div className="flex flex-col gap-1.5">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="password" className="text-xs font-semibold">Password</Label>
+                      <Label htmlFor="password" className="text-xs font-semibold text-foreground">
+                        Password
+                      </Label>
                       <button
                         type="button"
                         onClick={() => {
@@ -288,38 +200,97 @@ export const LoginPage: React.FC = () => {
                         Forgot password?
                       </button>
                     </div>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                      <Input
+                        id="password"
+                        type="password"
+                        required
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="••••••••••••"
+                        className="pl-9 text-xs rounded-lg h-10 bg-secondary/40 border-border focus-visible:ring-primary font-sans"
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="memberIdentifier" className="text-xs font-semibold text-foreground">
+                      Registered Phone or Email
+                    </Label>
                     <Input
-                      id="password"
-                      type="password"
+                      id="memberIdentifier"
                       required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="font-mono text-xs rounded-sm h-9 bg-card/70"
+                      value={memberIdentifier}
+                      onChange={(e) => setMemberIdentifier(e.target.value)}
+                      placeholder="e.g. 9876543210 or rahul@gmail.com"
+                      className="text-xs rounded-lg h-10 bg-secondary/40 border-border focus-visible:ring-primary font-sans"
                     />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="memberCode" className="text-xs font-semibold text-foreground">
+                      Member Code
+                    </Label>
+                    <Input
+                      id="memberCode"
+                      required
+                      value={memberCode}
+                      onChange={(e) => setMemberCode(e.target.value)}
+                      placeholder="e.g. MEM-1001"
+                      className="text-xs rounded-lg h-10 bg-secondary/40 border-border focus-visible:ring-primary font-mono uppercase"
+                    />
+                    <span className="text-[10px] text-muted-foreground font-mono">
+                      Found on your WhatsApp payment receipt or digital pass.
+                    </span>
                   </div>
                 </>
               )}
 
-              {/* Cloudflare Turnstile Bot Verification */}
-              <CloudflareTurnstile onSuccess={(token) => setTurnstileToken(token)} />
-
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-primary text-primary-foreground font-bold text-xs h-10 mt-1 rounded-sm shadow-md shadow-primary/20 hover:shadow-primary/30 transition-all"
+                className="w-full bg-primary text-primary-foreground font-semibold text-xs h-10 mt-1 rounded-lg shadow-sm hover:bg-primary/90 transition-all gap-2"
               >
-                {isLoading
-                  ? 'Authenticating...'
-                  : activeRole === 'MEMBER'
-                  ? 'Access Member Portal'
-                  : `Sign In as ${activeRole === 'GYM' ? 'Gym Staff' : 'Super Admin'}`}
-                {!isLoading && <ArrowRight className="ml-1.5 size-4" />}
+                {isLoading ? 'Signing In...' : mode === 'STAFF' ? 'Sign In to Console' : 'Access Member Pass'}
+                {!isLoading && <ArrowRight className="size-4" />}
               </Button>
             </form>
+
+            {/* Seamless Mode Switcher */}
+            <div className="pt-5 mt-5 border-t border-border/70 text-center">
+              {mode === 'STAFF' ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('MEMBER');
+                    setError(null);
+                  }}
+                  className="text-xs text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1.5 font-medium"
+                >
+                  <User className="size-3.5" />
+                  <span>Are you a gym member? <span className="underline">Access Member Pass</span></span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMode('STAFF');
+                    setError(null);
+                  }}
+                  className="text-xs text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1.5 font-medium"
+                >
+                  <Building2 className="size-3.5" />
+                  <span>Gym Owner or Staff? <span className="underline">Sign in to console</span></span>
+                </button>
+              )}
+            </div>
           </CardContent>
         </Card>
 
+        {/* Back Link */}
         <div className="text-center">
           <a href="#/" className="text-xs text-muted-foreground hover:text-foreground transition-colors font-mono">
             ← Back to Home
@@ -329,10 +300,10 @@ export const LoginPage: React.FC = () => {
 
       {/* Forgot Password Dialog */}
       <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
-        <DialogContent className="max-w-md bg-card border-border shadow-2xl p-6 rounded-md">
+        <DialogContent className="max-w-md bg-card border-border shadow-2xl p-6 rounded-xl">
           <DialogHeader className="pb-3 border-b border-border">
             <div className="flex items-center gap-2.5">
-              <div className="size-9 rounded-sm bg-primary/10 text-primary flex items-center justify-center">
+              <div className="size-9 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
                 <KeyRound className="size-5" />
               </div>
               <div>
@@ -348,13 +319,13 @@ export const LoginPage: React.FC = () => {
 
           {forgotMessage ? (
             <div className="flex flex-col gap-3 py-4">
-              <div className="p-3 bg-ok/10 border border-ok/30 rounded-sm text-ok text-xs flex items-center gap-2">
+              <div className="p-3 bg-ok/10 border border-ok/30 rounded-lg text-ok text-xs flex items-center gap-2">
                 <CheckCircle2 className="size-4 shrink-0" />
                 <span>{forgotMessage}</span>
               </div>
 
               {forgotDevUrl && (
-                <div className="p-3 bg-secondary/80 border border-border rounded-sm text-xs flex flex-col gap-1.5 font-mono">
+                <div className="p-3 bg-secondary/80 border border-border rounded-lg text-xs flex flex-col gap-1.5 font-mono">
                   <span className="text-[11px] font-bold text-foreground">Local Dev Preview Link:</span>
                   <a
                     href={forgotDevUrl}
@@ -378,7 +349,7 @@ export const LoginPage: React.FC = () => {
           ) : (
             <form onSubmit={handleForgotSubmit} className="flex flex-col gap-4 py-3">
               {forgotError && (
-                <Alert variant="destructive" className="rounded-sm">
+                <Alert variant="destructive" className="rounded-lg">
                   <AlertCircle className="size-4" />
                   <AlertDescription className="text-xs">{forgotError}</AlertDescription>
                 </Alert>
@@ -395,7 +366,7 @@ export const LoginPage: React.FC = () => {
                   placeholder="admin@yourgym.com"
                   value={forgotEmail}
                   onChange={(e) => setForgotEmail(e.target.value)}
-                  className="font-mono text-xs h-9"
+                  className="text-xs h-10 rounded-lg bg-secondary/40"
                 />
               </div>
 
@@ -405,14 +376,14 @@ export const LoginPage: React.FC = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => setForgotOpen(false)}
-                  className="text-xs h-9"
+                  className="text-xs h-9 rounded-lg"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={forgotLoading || !forgotEmail.trim()}
-                  className="bg-primary text-primary-foreground font-bold text-xs h-9 px-4"
+                  className="bg-primary text-primary-foreground font-bold text-xs h-9 px-4 rounded-lg"
                 >
                   {forgotLoading ? 'Sending...' : 'Send Reset Link'}
                 </Button>
@@ -424,3 +395,5 @@ export const LoginPage: React.FC = () => {
     </div>
   );
 };
+
+export default LoginPage;

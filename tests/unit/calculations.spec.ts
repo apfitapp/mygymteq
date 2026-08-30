@@ -1,4 +1,9 @@
 import { describe, it, expect } from 'vitest';
+import {
+  calculateMembershipFinancials,
+  calculateMembershipEndDate,
+  applyPayment,
+} from '../../apps/api/src/lib/calculations';
 
 describe('Gym SaaS Financial & Membership Calculations', () => {
   it('calculates package financials, discount, and due amount accurately in Paise', () => {
@@ -7,34 +12,45 @@ describe('Gym SaaS Financial & Membership Calculations', () => {
     const discountRupees = 500;
     const initialPaymentRupees = 2000;
 
-    const planPricePaise = planPriceRupees * 100;
-    const admissionFeePaise = admissionFeeRupees * 100;
-    const totalAmount = planPricePaise + admissionFeePaise; // 450,000 paise (₹4,500)
-    const discountAmount = discountRupees * 100; // 50,000 paise (₹500)
-    const finalAmount = Math.max(0, totalAmount - discountAmount); // 400,000 paise (₹4,000)
-    const paidAmount = Math.min(finalAmount, Math.max(0, initialPaymentRupees * 100)); // 200,000 paise (₹2,000)
-    const dueAmount = Math.max(0, finalAmount - paidAmount); // 200,000 paise (₹2,000)
+    const result = calculateMembershipFinancials({
+      planPrice: planPriceRupees * 100,
+      admissionFee: admissionFeeRupees * 100,
+      discountAmount: discountRupees * 100,
+      initialPaymentAmount: initialPaymentRupees * 100,
+    });
 
-    expect(totalAmount).toBe(450000);
-    expect(finalAmount).toBe(400000);
-    expect(paidAmount).toBe(200000);
-    expect(dueAmount).toBe(200000);
+    expect(result.totalAmount).toBe(450000);
+    expect(result.finalAmount).toBe(400000);
+    expect(result.paidAmount).toBe(200000);
+    expect(result.dueAmount).toBe(200000);
   });
 
   it('handles zero discount and full payment', () => {
-    const totalAmount = 150000; // ₹1,500
-    const discountAmount = 0;
-    const finalAmount = totalAmount - discountAmount;
-    const paidAmount = 150000;
-    const dueAmount = finalAmount - paidAmount;
+    const result = calculateMembershipFinancials({
+      planPrice: 150000,
+      admissionFee: 0,
+      discountAmount: 0,
+      initialPaymentAmount: 150000,
+    });
 
-    expect(dueAmount).toBe(0);
+    expect(result.dueAmount).toBe(0);
   });
 
-  it('calculates membership duration dates correctly', () => {
+  it('never lets paid amount exceed the final amount even if overpaid', () => {
+    const result = calculateMembershipFinancials({
+      planPrice: 100000,
+      admissionFee: 0,
+      initialPaymentAmount: 999999,
+    });
+
+    expect(result.paidAmount).toBe(100000);
+    expect(result.dueAmount).toBe(0);
+  });
+
+  it('calculates membership duration dates correctly using a standard 30-day month', () => {
     const startTimestamp = 1700000000; // fixed timestamp
     const durationMonths = 3;
-    const endTimestamp = startTimestamp + durationMonths * 30 * 86400; // standard 30-day month
+    const endTimestamp = calculateMembershipEndDate(startTimestamp, durationMonths);
 
     expect(endTimestamp).toBe(startTimestamp + 90 * 86400);
     expect(endTimestamp).toBeGreaterThan(startTimestamp);
@@ -42,15 +58,18 @@ describe('Gym SaaS Financial & Membership Calculations', () => {
 
   it('updates dues when additional payment is logged', () => {
     const finalAmount = 400000;
-    let paidAmount = 200000;
-    let dueAmount = finalAmount - paidAmount;
-    expect(dueAmount).toBe(200000);
+    let progress = applyPayment(finalAmount, 0, 200000);
+    expect(progress.dueAmount).toBe(200000);
 
-    const additionalPayment = 100000; // ₹1,000
-    paidAmount += additionalPayment;
-    dueAmount = Math.max(0, finalAmount - paidAmount);
+    progress = applyPayment(finalAmount, progress.paidAmount, 100000);
 
-    expect(paidAmount).toBe(300000);
-    expect(dueAmount).toBe(100000);
+    expect(progress.paidAmount).toBe(300000);
+    expect(progress.dueAmount).toBe(100000);
+  });
+
+  it('never reports a negative due amount even if payments exceed the final amount', () => {
+    const progress = applyPayment(400000, 380000, 100000);
+    expect(progress.paidAmount).toBe(480000);
+    expect(progress.dueAmount).toBe(0);
   });
 });

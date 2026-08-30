@@ -62,13 +62,13 @@ export const MemberQrCode: React.FC<MemberQrCodeProps> = ({
           <img
             src={dataUrl}
             alt={`Check-in QR for ${memberCode}`}
-            style={{ width: size, height: size }}
-            className="block rounded-sm"
+            width={size}
+            height={size}
+            className="block rounded-sm aspect-square"
           />
         ) : (
           <div
-            style={{ width: size, height: size }}
-            className="flex items-center justify-center text-muted-foreground"
+            className="flex items-center justify-center text-muted-foreground aspect-square size-48"
           >
             <RefreshCw className="size-6 animate-spin text-primary" />
           </div>

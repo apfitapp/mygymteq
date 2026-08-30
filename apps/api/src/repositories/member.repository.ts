@@ -1,4 +1,5 @@
 import { Member, MemberStatus } from '@gymtech/shared';
+import { isWithinLicenseLimit, calculateMembershipEndDate } from '../lib/calculations';
 
 export interface MemberListItem extends Member {
   active_membership_id?: string | null;
@@ -215,7 +216,7 @@ export class MemberRepository {
     const statements: any[] = [];
 
     for (let i = 0; i < rows.length; i++) {
-      if (license && license.max_members > 0 && (currentActive + importedCount) >= license.max_members) {
+      if (license && license.max_members > 0 && !isWithinLicenseLimit(currentActive + importedCount, license.max_members)) {
         skippedCount += (rows.length - i);
         errors.push(`Commercial license capacity reached (maximum ${license.max_members} active members). Remaining ${rows.length - i} rows were not imported. Please upgrade your plan.`);
         break;
@@ -256,7 +257,7 @@ export class MemberRepository {
       const startTimestamp = joinedTimestamp;
       const endTimestamp = row.endDate
         ? Math.floor(new Date(row.endDate).getTime() / 1000)
-        : startTimestamp + durationMonths * 30 * 86400;
+        : calculateMembershipEndDate(startTimestamp, durationMonths);
 
       const totalAmount = plan ? plan.price + plan.admission_fee : 150000;
       const paidPaise = Math.round((Number(row.paidAmount) || 0) * 100);

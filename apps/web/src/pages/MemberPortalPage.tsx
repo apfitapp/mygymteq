@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
+import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +29,7 @@ import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@
 import { GymStatusBadge } from '@/components/ui/GymStatusBadge';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { MemberQrCode } from '@/components/ui/MemberQrCode';
+import { Logo } from '@/components/shared/Logo';
 
 export const MemberPortalPage: React.FC = () => {
   const navigate = useNavigate();
@@ -54,10 +56,6 @@ export const MemberPortalPage: React.FC = () => {
   const daysRemaining = activeMembership
     ? Math.max(0, Math.ceil((activeMembership.end_date - nowSec) / 86400))
     : 0;
-
-  const formatCurrency = (paise: number) => {
-    return `₹${((paise || 0) / 100).toLocaleString('en-IN')}`;
-  };
 
   const formatDate = (timestamp?: number | null) => {
     if (!timestamp) return '—';
@@ -164,7 +162,7 @@ export const MemberPortalPage: React.FC = () => {
               {/* Card Header */}
               <div className="flex items-center justify-between z-10">
                 <div className="flex items-center gap-2.5">
-                  <img src="/logo.png" alt="GymTech" className="h-6 w-auto rounded-xs" />
+                  <Logo size="sm" showText={false} />
                   <span className="font-display font-bold text-xs text-foreground tracking-wider uppercase">
                     {gym?.name || 'GYM PASS'}
                   </span>

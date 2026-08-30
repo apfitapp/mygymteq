@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Search, UserPlus, Phone, CreditCard, ChevronRight, FileSpreadsheet } from 'lucide-react';
+import { Plus, FileSpreadsheet } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
+import { PageContainer } from '@/components/shared/PageContainer';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { GymStatusBadge } from '@/components/ui/GymStatusBadge';
 import { ExcelMigrationDialog } from '@/components/members/ExcelMigrationDialog';
+import { MemberFilters } from '@/components/members/MemberFilters';
+import { MemberTable } from '@/components/members/MemberTable';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 
 export const MembersPage: React.FC = () => {
+  const { user } = useAuth();
+  const canManage = user?.role === 'OWNER' || user?.role === 'MANAGER';
+  const canAddMember = user?.role === 'OWNER' || user?.role === 'MANAGER' || user?.role === 'STAFF';
+
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [isMigrationOpen, setIsMigrationOpen] = useState(false);
@@ -23,209 +27,51 @@ export const MembersPage: React.FC = () => {
 
   const members = data?.members || [];
 
-  const formatCurrency = (paise: number) => {
-    return `₹${((paise || 0) / 100).toLocaleString('en-IN')}`;
-  };
-
   return (
     <AppShell title="Member Directory" breadcrumb="Members">
-      {/* Header & Controls */}
-      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="font-display text-2xl font-bold tracking-tight text-foreground">
-            Enrolled Members
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Manage your member database, renewals, and package histories
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => setIsMigrationOpen(true)}
-            className="text-xs h-9 font-medium gap-1.5 border-border hover:bg-secondary"
-          >
-            <FileSpreadsheet className="size-4 text-primary" />
-            <span>Excel / CSV Migration</span>
-          </Button>
-
-          <Button asChild className="bg-primary text-primary-foreground font-bold text-xs h-9">
-            <a href="#/members/new">
-              <Plus className="mr-1.5 size-4" /> Add Member
-            </a>
-          </Button>
-        </div>
-      </section>
-
-      {/* Migration Dialog */}
-      <ExcelMigrationDialog open={isMigrationOpen} onOpenChange={setIsMigrationOpen} />
-
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row items-center gap-3">
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <Input
-            placeholder="Search by name, phone, code..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 h-9 text-xs"
-          />
-        </div>
-
-        <div className="flex items-center gap-1 bg-secondary/80 p-1 rounded-lg border border-border">
-          {(['ALL', 'ACTIVE', 'EXPIRED', 'FROZEN'] as const).map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => setStatusFilter(s)}
-              className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
-                statusFilter === s
-                  ? 'bg-card text-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {s === 'ALL' ? 'All Members' : s === 'ACTIVE' ? 'Active' : s === 'EXPIRED' ? 'Expired' : 'Frozen'}
-            </button>
-          ))}
-        </div>
-
-        <span className="ml-auto text-xs text-muted-foreground font-mono">
-          {members.length} member{members.length !== 1 ? 's' : ''} found
-        </span>
-      </div>
-
-      {/* Member Table */}
-      <Card className="border-border shadow-xs overflow-hidden">
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-surface-2 hover:bg-surface-2">
-                <TableHead className="font-mono text-[10px] uppercase">Member</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase">Contact</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase">Current Plan</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase">Status</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase text-right">Dues</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-32 text-center text-xs text-muted-foreground">
-                    Loading member roster...
-                  </TableCell>
-                </TableRow>
-              ) : members.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="h-32 text-center text-xs text-muted-foreground">
-                    No members match the criteria.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                members.map((m: any) => {
-                  const initials = `${(m.first_name?.[0] || 'M')}${(m.last_name?.[0] || '')}`.toUpperCase();
-                  const nowSec = Math.floor(Date.now() / 1000);
-                  const isExpired = m.membership_end_date ? m.membership_end_date < nowSec : false;
-                  const daysRemaining = m.membership_end_date ? Math.ceil((m.membership_end_date - nowSec) / 86400) : 0;
-                  const effectiveStatus = isExpired || m.status === 'EXPIRED' ? 'EXPIRED' : m.status;
-
-                  return (
-                    <TableRow key={m.id} className="hover:bg-secondary/40">
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="size-8 rounded-lg bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-display text-xs font-bold shrink-0 overflow-hidden shadow-2xs">
-                            {m.photo_url ? (
-                              <img src={m.photo_url} alt={m.first_name} className="size-full object-cover" />
-                            ) : (
-                              initials
-                            )}
-                          </div>
-                          <div className="flex flex-col min-w-0">
-                            <a
-                              href={`#/members/${m.id}`}
-                              className="font-semibold text-xs text-foreground hover:underline truncate"
-                            >
-                              {m.first_name} {m.last_name || ''}
-                            </a>
-                            <span className="text-[10px] font-mono text-muted-foreground">
-                              {m.member_code}
-                            </span>
-                          </div>
-                        </div>
-                      </TableCell>
-
-                      <TableCell>
-                        <div className="flex flex-col text-xs font-mono">
-                          <span className="text-foreground">{m.phone}</span>
-                          {m.email && <span className="text-muted-foreground text-[11px] truncate">{m.email}</span>}
-                        </div>
-                      </TableCell>
-
-                      <TableCell>
-                        <div className="flex flex-col gap-1 text-xs">
-                          <span className="font-semibold text-foreground">{m.plan_name || 'No Plan'}</span>
-                          {m.membership_end_date ? (
-                            <>
-                              <span className="text-[10px] font-mono text-muted-foreground">
-                                {m.membership_start_date ? new Date(m.membership_start_date * 1000).toLocaleDateString('en-IN') : '—'} → {new Date(m.membership_end_date * 1000).toLocaleDateString('en-IN')}
-                              </span>
-                              {isExpired ? (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-destructive/10 text-destructive border border-destructive/30 w-fit">
-                                  EXPIRED · Frozen
-                                </span>
-                              ) : daysRemaining <= 7 ? (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-mono font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 w-fit">
-                                  Expiring ({daysRemaining}d left)
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-mono font-semibold bg-ok/10 text-ok border border-ok/30 w-fit">
-                                  Active ({daysRemaining}d left)
-                                </span>
-                              )}
-                            </>
-                          ) : (
-                            <span className="text-[10px] font-mono text-muted-foreground">No active term</span>
-                          )}
-                        </div>
-                      </TableCell>
-
-                      <TableCell>
-                        <GymStatusBadge status={effectiveStatus} />
-                      </TableCell>
-
-                      <TableCell className="text-right font-mono text-xs">
-                        {m.membership_due_amount > 0 ? (
-                          <span className="text-destructive font-bold">
-                            {formatCurrency(m.membership_due_amount)}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">₹0</span>
-                        )}
-                      </TableCell>
-
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          {isExpired && (
-                            <Button asChild size="sm" variant="outline" className="h-7 text-[11px] px-2.5 font-bold border-primary/40 text-primary hover:bg-primary/10">
-                              <a href={`#/members/${m.id}/renew`}>Renew</a>
-                            </Button>
-                          )}
-                          <Button asChild variant="ghost" size="sm" className="h-7 text-xs px-2">
-                            <a href={`#/members/${m.id}`}>
-                              Profile <ChevronRight className="ml-1 size-3" />
-                            </a>
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
+      <PageContainer>
+        <PageHeader
+          title="Enrolled Members"
+          description="Manage your member database, renewals, and package histories"
+          actions={
+            <>
+              {canManage && (
+                <Button
+                  variant="outline"
+                  onClick={() => setIsMigrationOpen(true)}
+                  className="text-xs h-9 font-medium gap-1.5 border-border hover:bg-secondary"
+                >
+                  <FileSpreadsheet className="size-4 text-primary" />
+                  <span>Excel / CSV Migration</span>
+                </Button>
               )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+
+              {canAddMember && (
+                <Button asChild className="bg-primary text-primary-foreground font-bold text-xs h-9">
+                  <a href="#/members/new">
+                    <Plus className="mr-1.5 size-4" /> Add Member
+                  </a>
+                </Button>
+              )}
+            </>
+          }
+        />
+
+        {/* Migration Dialog */}
+        <ExcelMigrationDialog open={isMigrationOpen} onOpenChange={setIsMigrationOpen} />
+
+        {/* Filters & Search */}
+        <MemberFilters
+          search={search}
+          onSearchChange={setSearch}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          totalFound={members.length}
+        />
+
+        {/* Member Table */}
+        <MemberTable members={members} isLoading={isLoading} />
+      </PageContainer>
     </AppShell>
   );
 };

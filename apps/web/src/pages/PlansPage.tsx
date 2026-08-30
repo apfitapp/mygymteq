@@ -2,6 +2,10 @@ import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Tag, Check, AlertCircle } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
+import { PageContainer } from '@/components/shared/PageContainer';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { CardGridSkeleton } from '@/components/shared/LoadingState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -17,9 +21,13 @@ import {
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
+import { formatCurrency } from '@/lib/utils';
 
 export const PlansPage: React.FC = () => {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+  const canManage = user?.role === 'OWNER' || user?.role === 'MANAGER';
 
   const { data, isLoading } = useQuery({
     queryKey: ['plans'],
@@ -28,6 +36,7 @@ export const PlansPage: React.FC = () => {
 
   const plans = data?.plans || [];
 
+  // Dialog State
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState('');
   const [durationMonths, setDurationMonths] = useState<number>(1);
@@ -37,10 +46,6 @@ export const PlansPage: React.FC = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const formatCurrency = (paise: number) => {
-    return `₹${((paise || 0) / 100).toLocaleString('en-IN')}`;
-  };
 
   const handleCreatePlan = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,10 +61,10 @@ export const PlansPage: React.FC = () => {
         description: description || undefined,
       });
 
+      queryClient.invalidateQueries({ queryKey: ['plans'] });
       setDialogOpen(false);
       setName('');
       setDescription('');
-      queryClient.invalidateQueries({ queryKey: ['plans'] });
     } catch (err: any) {
       setError(err.message || 'Failed to create plan');
     } finally {
@@ -69,66 +74,76 @@ export const PlansPage: React.FC = () => {
 
   return (
     <AppShell title="Membership Plans" breadcrumb="Billing">
-      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="font-display text-2xl font-bold tracking-tight text-foreground">
-            Gym Plan Catalog
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Configure member packages, pricing durations, and admission fees
-          </p>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="Gym Plan Catalog"
+          description="Configure member packages, pricing durations, and admission fees"
+          actions={
+            canManage && (
+              <Button
+                onClick={() => {
+                  setError(null);
+                  setDialogOpen(true);
+                }}
+                className="bg-primary text-primary-foreground font-bold text-xs h-9"
+              >
+                <Plus className="mr-1.5 size-4" /> Create Plan
+              </Button>
+            )
+          }
+        />
 
-        <Button
-          onClick={() => {
-            setError(null);
-            setDialogOpen(true);
-          }}
-          className="bg-primary text-primary-foreground font-bold text-xs h-9"
-        >
-          <Plus className="mr-1.5 size-4" /> Create Plan
-        </Button>
-      </section>
-
-      {/* Plans Grid */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="h-44 animate-pulse bg-secondary/30" />
-          ))}
-        </div>
-      ) : plans.length === 0 ? (
-        <div className="py-16 text-center text-xs text-muted-foreground">
-          No membership plans created yet. Click "+ Create Plan" to add your first plan.
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {plans.map((p) => (
-            <Card key={p.id} className="border-border shadow-xs flex flex-col justify-between p-5 bg-card">
-              <div>
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <h3 className="font-display text-base font-bold text-foreground">{p.name}</h3>
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {p.duration_months} Month{p.duration_months > 1 ? 's' : ''} Duration
-                    </span>
+        {/* Plans Grid */}
+        {isLoading ? (
+          <CardGridSkeleton count={3} />
+        ) : plans.length === 0 ? (
+          <EmptyState
+            icon={Tag}
+            title="No membership plans created yet"
+            description='Click "+ Create Plan" to add your first membership package.'
+            action={
+              canManage ? (
+                <Button
+                  onClick={() => {
+                    setError(null);
+                    setDialogOpen(true);
+                  }}
+                  className="bg-primary text-primary-foreground font-bold text-xs"
+                >
+                  <Plus className="mr-1.5 size-4" /> Create Plan
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+            {plans.map((p) => (
+              <Card key={p.id} className="card-hover-lift border-border shadow-xs flex flex-col justify-between p-5 bg-card relative overflow-hidden group">
+                <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-emerald-400 to-[#0284C7] opacity-80 group-hover:opacity-100 transition-opacity" />
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="font-display text-base font-bold text-foreground group-hover:text-primary transition-colors">{p.name}</h3>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {p.duration_months} Month{p.duration_months > 1 ? 's' : ''} Duration
+                      </span>
+                    </div>
+                    <Badge variant="outline" className="font-mono text-[10px] text-ok border-ok/30 bg-ok/10 rounded-full">
+                      Active
+                    </Badge>
                   </div>
-                  <Badge variant="outline" className="font-mono text-[10px] text-ok border-ok/30 bg-ok/10">
-                    Active
-                  </Badge>
-                </div>
 
-                <div className="my-3">
-                  <span className="font-display text-2xl font-bold text-primary">
-                    {formatCurrency(p.price)}
-                  </span>
-                  <span className="text-xs text-muted-foreground font-mono"> / term</span>
-                  {p.admission_fee > 0 && (
-                    <p className="text-[11px] font-mono text-muted-foreground mt-0.5">
-                      + {formatCurrency(p.admission_fee)} Admission Fee
-                    </p>
-                  )}
-                </div>
+                  <div className="my-4">
+                    <span className="font-display text-2xl sm:text-3xl font-bold text-foreground">
+                      {formatCurrency(p.price)}
+                    </span>
+                    <span className="text-xs text-muted-foreground font-mono"> / term</span>
+                    {p.admission_fee > 0 && (
+                      <p className="text-[11px] font-mono text-muted-foreground mt-0.5">
+                        + {formatCurrency(p.admission_fee)} Admission Fee
+                      </p>
+                    )}
+                  </div>
 
                 {p.description && (
                   <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
@@ -137,9 +152,9 @@ export const PlansPage: React.FC = () => {
                 )}
               </div>
 
-              <div className="pt-3 mt-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground font-mono">
-                <span>Code: {p.id.slice(0, 8)}</span>
-                <span className="text-primary font-semibold">Enrolled by members</span>
+              <div className="pt-3 mt-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground font-mono">
+                <span className="text-[11px]">ID: {p.id.slice(0, 8)}</span>
+                <span className="text-primary font-semibold text-[11px]">Active in Catalog</span>
               </div>
             </Card>
           ))}
@@ -242,6 +257,7 @@ export const PlansPage: React.FC = () => {
           </form>
         </DialogContent>
       </Dialog>
+      </PageContainer>
     </AppShell>
   );
 };

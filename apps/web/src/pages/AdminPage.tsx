@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { api } from '@/lib/api';
+import { formatCurrency } from '@/lib/utils';
 
 export const AdminPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -125,10 +126,6 @@ export const AdminPage: React.FC = () => {
     }
   };
 
-  const formatCurrency = (paise: number) => {
-    return `₹${((paise || 0) / 100).toLocaleString('en-IN')}`;
-  };
-
   return (
     <AdminShell title="Tenants & Commercial Subscriptions">
       {/* Platform KPI Metrics */}
@@ -185,6 +182,7 @@ export const AdminPage: React.FC = () => {
                     <TableHead className="font-mono text-[10px] uppercase">Gym Name &amp; City</TableHead>
                     <TableHead className="font-mono text-[10px] uppercase">Plan</TableHead>
                     <TableHead className="font-mono text-[10px] uppercase">Members</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase">License Expiry</TableHead>
                     <TableHead className="font-mono text-[10px] uppercase">Status</TableHead>
                     <TableHead className="font-mono text-[10px] uppercase text-right">Action</TableHead>
                   </TableRow>
@@ -192,18 +190,25 @@ export const AdminPage: React.FC = () => {
                 <TableBody>
                   {gymsLoading ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="h-32 text-center text-xs text-muted-foreground">
+                      <TableCell colSpan={6} className="h-32 text-center text-xs text-muted-foreground">
                         Loading tenant directory...
                       </TableCell>
                     </TableRow>
                   ) : gyms.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="h-32 text-center text-xs text-muted-foreground">
+                      <TableCell colSpan={6} className="h-32 text-center text-xs text-muted-foreground">
                         No gym tenants found.
                       </TableCell>
                     </TableRow>
                   ) : (
-                    gyms.map((g: any) => (
+                    gyms.map((g: any) => {
+                      const expirySec = g.subscription_end_date ? Number(g.subscription_end_date) : null;
+                      const nowSec = Math.floor(Date.now() / 1000);
+                      const daysToExpiry = expirySec ? Math.ceil((expirySec - nowSec) / 86400) : null;
+                      const isExpired = daysToExpiry !== null && daysToExpiry < 0;
+                      const isExpiringSoon = daysToExpiry !== null && daysToExpiry >= 0 && daysToExpiry <= 30;
+
+                      return (
                       <TableRow key={g.id} className="hover:bg-secondary/40">
                         <TableCell>
                           <div className="flex flex-col">
@@ -220,6 +225,27 @@ export const AdminPage: React.FC = () => {
                         </TableCell>
                         <TableCell className="font-mono text-xs">
                           {g.member_count || 0} / {g.max_members === -1 ? '∞' : g.max_members}
+                        </TableCell>
+                        <TableCell>
+                          {expirySec ? (
+                            <div className="flex flex-col">
+                              <span
+                                className={`font-mono text-xs ${
+                                  isExpired ? 'text-destructive font-semibold' : isExpiringSoon ? 'text-warn font-semibold' : 'text-foreground'
+                                }`}
+                              >
+                                {new Date(expirySec * 1000).toLocaleDateString('en-IN')}
+                              </span>
+                              {isExpired && (
+                                <span className="text-[10px] font-mono text-destructive">Expired</span>
+                              )}
+                              {isExpiringSoon && (
+                                <span className="text-[10px] font-mono text-warn">{daysToExpiry}d left</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[10px] font-mono text-muted-foreground">No subscription</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <span
@@ -247,7 +273,8 @@ export const AdminPage: React.FC = () => {
                           </Button>
                         </TableCell>
                       </TableRow>
-                    ))
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>

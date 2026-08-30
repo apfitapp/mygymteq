@@ -14,6 +14,8 @@ import {
 } from 'recharts';
 import { Users, IndianRupee, CalendarCheck, AlertCircle, TrendingUp, PieChart as PieIcon, Download, Loader2 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
+import { PageContainer } from '@/components/shared/PageContainer';
+import { PageHeader } from '@/components/shared/PageHeader';
 import { StatCard } from '@/components/ui/StatCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -27,8 +29,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/components/ui/toast';
 import { api } from '@/lib/api';
+import { formatCurrency, cn } from '@/lib/utils';
 
-const COLORS = ['#00C96E', '#3B82F6', '#F59E0B', '#EC4899', '#8B5CF6', '#14B8A6'];
+const COLORS = ['#067A5F', '#3B82F6', '#F59E0B', '#EC4899', '#8B5CF6', '#14B8A6'];
+const COLOR_CLASSES = ['bg-primary', 'bg-blue-500', 'bg-amber-500', 'bg-pink-500', 'bg-purple-500', 'bg-teal-500'];
 
 export const ReportsPage: React.FC = () => {
   const [period, setPeriod] = useState<'month' | 'quarter' | 'year'>('month');
@@ -48,16 +52,12 @@ export const ReportsPage: React.FC = () => {
   };
 
   const { data, isLoading } = useQuery({
-    queryKey: ['reports'],
-    queryFn: () => api.getReports(),
+    queryKey: ['reports', period],
+    queryFn: () => api.getReports(period),
   });
 
   const metrics = data?.metrics;
   const planBreakdown = data?.planBreakdown || [];
-
-  const formatCurrency = (paise: number) => {
-    return `₹${((paise || 0) / 100).toLocaleString('en-IN')}`;
-  };
 
   const totalRev = planBreakdown.reduce((sum: number, b: any) => sum + (b.revenue || 0), 0);
 
@@ -66,59 +66,53 @@ export const ReportsPage: React.FC = () => {
     revenue: (item.revenue || 0) / 100,
     count: item.count || 0,
     fill: COLORS[i % COLORS.length],
+    colorClass: COLOR_CLASSES[i % COLOR_CLASSES.length],
   }));
 
   return (
     <AppShell title="Reports & Insights" breadcrumb="Operations">
-      {/* Header with period toggle */}
-      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="font-display text-2xl font-bold tracking-tight text-foreground">
-            Business Reports &amp; Analytics
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Track member retention, monthly collections, and package popularity
-          </p>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="Business Reports & Analytics"
+          description="Track member retention, monthly collections, and package popularity"
+          actions={
+            <div className="flex items-center gap-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="text-xs h-9 font-semibold" disabled={!!exporting}>
+                    {exporting ? (
+                      <Loader2 className="mr-1.5 size-3.5 animate-spin" />
+                    ) : (
+                      <Download className="mr-1.5 size-3.5" />
+                    )}
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleExport('payments')}>Payments (CSV)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport('members')}>Members (CSV)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport('attendance')}>Attendance (CSV)</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExport('dues')}>Outstanding Dues (CSV)</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
 
-        <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="text-xs h-9 font-semibold" disabled={!!exporting}>
-                {exporting ? (
-                  <Loader2 className="mr-1.5 size-3.5 animate-spin" />
-                ) : (
-                  <Download className="mr-1.5 size-3.5" />
-                )}
-                Export
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => handleExport('payments')}>Payments (CSV)</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('members')}>Members (CSV)</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('attendance')}>Attendance (CSV)</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('dues')}>Outstanding Dues (CSV)</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-
-          <div className="flex items-center gap-1 p-1 bg-surface-2 border border-border rounded-lg">
-          {(['month', 'quarter', 'year'] as const).map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => setPeriod(p)}
-              className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
-                period === p
-                  ? 'bg-card text-foreground shadow-xs'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {p === 'month' ? 'This Month' : p === 'quarter' ? 'Last 3 Months' : 'This Year'}
-            </button>
-          ))}
-          </div>
-        </div>
-      </section>
+              <div className="flex items-center bg-secondary/80 border border-border p-1 rounded-lg">
+                {(['month', 'quarter', 'year'] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPeriod(p)}
+                    className={`px-3 py-1.5 rounded-md text-xs font-semibold capitalize transition-all ${
+                      period === p ? 'bg-card text-foreground shadow-2xs font-bold' : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {p === 'month' ? 'This Month' : p === 'quarter' ? 'This Quarter' : 'This Year'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          }
+        />
 
       {/* KPI Overview */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -130,9 +124,9 @@ export const ReportsPage: React.FC = () => {
           icon={<Users className="size-4" />}
         />
         <StatCard
-          title="Monthly Revenue"
-          value={formatCurrency(metrics?.monthlyRevenue || 0)}
-          subtitle="Collected this month"
+          title={period === 'month' ? 'Monthly Revenue' : period === 'quarter' ? 'Last 3 Months Revenue' : 'Yearly Revenue'}
+          value={formatCurrency(data?.periodRevenue || 0)}
+          subtitle={`${data?.periodPaymentCount || 0} payments collected`}
           variant="ok"
           icon={<IndianRupee className="size-4" />}
         />
@@ -260,7 +254,7 @@ export const ReportsPage: React.FC = () => {
             <div className="w-full pt-2 border-t border-border grid grid-cols-2 gap-2 text-xs">
               {chartData.slice(0, 4).map((d) => (
                 <div key={d.name} className="flex items-center gap-1.5 min-w-0">
-                  <div className="size-2 rounded-full shrink-0" style={{ backgroundColor: d.fill }}></div>
+                  <div className={cn("size-2 rounded-full shrink-0", d.colorClass)}></div>
                   <span className="text-[11px] text-muted-foreground truncate">{d.name}</span>
                 </div>
               ))}
@@ -326,6 +320,7 @@ export const ReportsPage: React.FC = () => {
           </Table>
         </CardContent>
       </Card>
+      </PageContainer>
     </AppShell>
   );
 };

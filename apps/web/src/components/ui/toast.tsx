@@ -54,6 +54,12 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     info: <Info className="size-4 text-primary shrink-0" />,
   };
 
+  const accent: Record<ToastVariant, string> = {
+    success: 'border-l-ok',
+    error: 'border-l-destructive',
+    info: 'border-l-primary',
+  };
+
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
@@ -62,7 +68,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           <div
             key={t.id}
             role="status"
-            className="pointer-events-auto flex items-start gap-2.5 rounded-md border border-border bg-card/95 backdrop-blur-md px-3.5 py-3 shadow-lg animate-in slide-in-from-bottom-2 fade-in duration-200"
+            className={`animate-toast-in pointer-events-auto flex items-start gap-2.5 rounded-md border border-l-[3px] ${accent[t.variant]} border-border bg-card px-3.5 py-3 shadow-lg`}
           >
             {icons[t.variant]}
             <div className="min-w-0 flex-1">

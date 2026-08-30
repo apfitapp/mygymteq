@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, ShieldAlert, UserCheck, AlertCircle } from 'lucide-react';
+import { Plus, Users, ShieldAlert, UserCheck, AlertCircle } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
+import { PageContainer } from '@/components/shared/PageContainer';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { StatusBadge } from '@/components/shared/StatusBadge';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { TableSkeleton } from '@/components/shared/LoadingState';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,9 +30,12 @@ import {
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/auth';
 
 export const StaffPage: React.FC = () => {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
+  const canManage = user?.role === 'OWNER' || user?.role === 'MANAGER';
 
   const { data, isLoading } = useQuery({
     queryKey: ['staff'],
@@ -72,98 +80,85 @@ export const StaffPage: React.FC = () => {
     }
   };
 
-  const getRoleBadge = (r: string) => {
-    if (r === 'OWNER') return <Badge className="bg-primary/10 text-primary border-primary/20">Gym Owner</Badge>;
-    if (r === 'MANAGER') return <Badge variant="outline" className="text-foreground">Manager</Badge>;
-    if (r === 'TRAINER') return <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">Trainer</Badge>;
-    return <Badge variant="secondary">Front Desk</Badge>;
-  };
-
   return (
     <AppShell title="Staff & Trainers" breadcrumb="Operations">
-      <section className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h2 className="font-display text-2xl font-bold tracking-tight text-foreground">
-            Team &amp; Access Control
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Manage front desk personnel, fitness trainers, and role authorizations
-          </p>
-        </div>
+      <PageContainer>
+        <PageHeader
+          title="Team & Access Control"
+          description="Manage front desk personnel, fitness trainers, and role authorizations"
+          actions={
+            canManage && (
+              <Button
+                onClick={() => {
+                  setError(null);
+                  setDialogOpen(true);
+                }}
+                className="bg-primary text-primary-foreground font-bold text-xs h-9"
+              >
+                <Plus className="mr-1.5 size-4" /> Add Team Member
+              </Button>
+            )
+          }
+        />
 
-        <Button
-          onClick={() => {
-            setError(null);
-            setDialogOpen(true);
-          }}
-          className="bg-primary text-primary-foreground font-bold text-xs h-9"
-        >
-          <Plus className="mr-1.5 size-4" /> Add Team Member
-        </Button>
-      </section>
-
-      <Card className="border-border shadow-xs overflow-hidden">
-        <CardHeader className="pb-3 border-b border-border flex flex-row items-center justify-between">
-          <CardTitle className="font-display text-base">Active Roster</CardTitle>
-          <span className="font-mono text-xs text-muted-foreground">
-            {staff.length} registered members
-          </span>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-surface-2 hover:bg-surface-2">
-                <TableHead className="font-mono text-[10px] uppercase">Staff Member</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase">Role</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase">Contact</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase">Status</TableHead>
-                <TableHead className="font-mono text-[10px] uppercase text-right">Joined</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-xs text-muted-foreground">
-                    Loading team roster...
-                  </TableCell>
-                </TableRow>
-              ) : staff.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="h-32 text-center text-xs text-muted-foreground">
-                    No staff members found.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                staff.map((s: any) => (
-                  <TableRow key={s.id} className="hover:bg-secondary/40">
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="size-8 rounded-lg bg-surface-2 border border-border flex items-center justify-center font-mono font-bold text-xs">
-                          {s.name?.[0] || 'S'}
-                        </div>
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-xs text-foreground">{s.name}</span>
-                          <span className="text-[10px] font-mono text-muted-foreground">{s.email}</span>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>{getRoleBadge(s.role)}</TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">{s.phone || '—'}</TableCell>
-                    <TableCell>
-                      <span className="inline-flex px-1.5 py-0.2 rounded font-mono text-[10px] bg-ok/10 text-ok font-semibold">
-                        {s.status}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                      {new Date(s.created_at * 1000).toLocaleDateString('en-IN')}
-                    </TableCell>
+        <Card className="border-border shadow-xs overflow-hidden">
+          <CardHeader className="pb-3 border-b border-border flex flex-row items-center justify-between">
+            <CardTitle className="font-display text-base">Active Roster</CardTitle>
+            <span className="font-mono text-xs text-muted-foreground">
+              {staff.length} registered members
+            </span>
+          </CardHeader>
+          <CardContent className="p-0">
+            {isLoading ? (
+              <TableSkeleton rows={4} cols={5} />
+            ) : staff.length === 0 ? (
+              <EmptyState
+                icon={Users}
+                title="No staff members found"
+                description="Invite team members to help manage front desk or training."
+              />
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-surface-2 hover:bg-surface-2">
+                    <TableHead className="font-mono text-[10px] uppercase">Staff Member</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase">Role</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase">Contact</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase">Status</TableHead>
+                    <TableHead className="font-mono text-[10px] uppercase text-right">Joined</TableHead>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {staff.map((s: any) => (
+                    <TableRow key={s.id} className="hover:bg-secondary/40">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="size-8 rounded-lg bg-surface-2 border border-border flex items-center justify-center font-mono font-bold text-xs">
+                            {s.name?.[0] || 'S'}
+                          </div>
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-xs text-foreground">{s.name}</span>
+                            <span className="text-[10px] font-mono text-muted-foreground">{s.email}</span>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell><StatusBadge status={s.role} variant="role" /></TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">{s.phone || '—'}</TableCell>
+                      <TableCell>
+                        <span className="inline-flex px-1.5 py-0.5 rounded font-mono text-[10px] bg-ok/10 text-ok font-semibold">
+                          {s.status}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                        {new Date(s.created_at * 1000).toLocaleDateString('en-IN')}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
 
       {/* Add Staff Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -265,6 +260,7 @@ export const StaffPage: React.FC = () => {
           </form>
         </DialogContent>
       </Dialog>
+      </PageContainer>
     </AppShell>
   );
 };

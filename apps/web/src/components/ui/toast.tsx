@@ -3,15 +3,26 @@ import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 
 type ToastVariant = 'success' | 'error' | 'info';
 
+export interface ToastAction {
+  label: string
+  onClick: () => void
+}
+
 interface ToastItem {
   id: number;
   variant: ToastVariant;
   title: string;
   description?: string;
+  action?: ToastAction;
 }
 
 interface ToastContextType {
-  toast: (variant: ToastVariant, title: string, description?: string) => void;
+  toast: (
+    variant: ToastVariant,
+    title: string,
+    description?: string,
+    action?: ToastAction
+  ) => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
@@ -32,9 +43,9 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, []);
 
   const toast = useCallback(
-    (variant: ToastVariant, title: string, description?: string) => {
+    (variant: ToastVariant, title: string, description?: string, action?: ToastAction) => {
       const id = ++toastId;
-      setToasts((prev) => [...prev.slice(-3), { id, variant, title, description }]);
+      setToasts((prev) => [...prev.slice(-3), { id, variant, title, description, action }]);
       timers.current.set(
         id,
         setTimeout(() => dismiss(id), variant === 'error' ? 6000 : 4000)
@@ -63,7 +74,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   return (
     <ToastContext.Provider value={{ toast }}>
       {children}
-      <div className="fixed bottom-4 right-4 z-[100] flex w-[min(92vw,360px)] flex-col gap-2 pointer-events-none">
+      <div className="fixed bottom-4 right-4 z-100 flex w-[min(92vw,360px)] flex-col gap-2 pointer-events-none">
         {toasts.map((t) => (
           <div
             key={t.id}
@@ -74,9 +85,21 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-foreground leading-tight">{t.title}</p>
               {t.description && (
-                <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug break-words">
+                <p className="mt-0.5 text-[11px] text-muted-foreground leading-snug wrap-break-word">
                   {t.description}
                 </p>
+              )}
+              {t.action && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    t.action!.onClick()
+                    dismiss(t.id)
+                  }}
+                  className="mt-1.5 text-[11px] font-bold text-primary hover:underline"
+                >
+                  {t.action.label}
+                </button>
               )}
             </div>
             <button

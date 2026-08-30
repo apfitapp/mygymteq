@@ -2,7 +2,9 @@ import { test, expect } from '@playwright/test';
 import path from 'path';
 
 test.describe('Visual Inspection Pass', () => {
-  const artifactDir = 'C:\\Users\\phaneendra\\.gemini\\antigravity-ide\\brain\\4240f550-cd18-40fb-a947-b7ae87ca5103';
+  const artifactDir =
+    process.env.ARTIFACT_DIR ||
+    path.resolve(process.cwd(), 'test-results/visual');
 
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {

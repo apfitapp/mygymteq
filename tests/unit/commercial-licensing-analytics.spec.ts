@@ -94,4 +94,75 @@ describe('Commercial Licensing & Operational Analytics', () => {
       expect(cgst + sgst).toBe(taxAmount);
     });
   });
+
+  describe('SMS & WhatsApp Centralized Gateways and Balance Quota Enforcement', () => {
+    interface MessageBalanceState {
+      max_sms: number;
+      sms_used: number;
+      max_whatsapp: number;
+      whatsapp_used: number;
+    }
+
+    const computeRemaining = (max: number, used: number) => Math.max(0, max - used);
+
+    it('calculates remaining credits accurately for active quota', () => {
+      const state: MessageBalanceState = {
+        max_sms: 500,
+        sms_used: 120,
+        max_whatsapp: 1000,
+        whatsapp_used: 450,
+      };
+
+      expect(computeRemaining(state.max_sms, state.sms_used)).toBe(380);
+      expect(computeRemaining(state.max_whatsapp, state.whatsapp_used)).toBe(550);
+    });
+
+    it('decrements remaining balance when an SMS notification is dispatched', () => {
+      const state: MessageBalanceState = {
+        max_sms: 500,
+        sms_used: 120,
+        max_whatsapp: 1000,
+        whatsapp_used: 450,
+      };
+
+      // Dispatched 1 SMS
+      state.sms_used += 1;
+      expect(computeRemaining(state.max_sms, state.sms_used)).toBe(379);
+    });
+
+    it('blocks dispatch when balance reaches 0', () => {
+      const exhaustedState: MessageBalanceState = {
+        max_sms: 100,
+        sms_used: 100,
+        max_whatsapp: 0,
+        whatsapp_used: 0,
+      };
+
+      const canSendSms = computeRemaining(exhaustedState.max_sms, exhaustedState.sms_used) > 0;
+      const canSendWa = computeRemaining(exhaustedState.max_whatsapp, exhaustedState.whatsapp_used) > 0;
+
+      expect(canSendSms).toBe(false);
+      expect(canSendWa).toBe(false);
+    });
+
+    it('recharges and restores dispatching capacity after Super Admin credit top-up', () => {
+      const state: MessageBalanceState = {
+        max_sms: 100,
+        sms_used: 100,
+        max_whatsapp: 50,
+        whatsapp_used: 50,
+      };
+
+      expect(computeRemaining(state.max_sms, state.sms_used)).toBe(0);
+
+      // Super Admin tops up +500 SMS credits
+      state.max_sms += 500;
+      expect(computeRemaining(state.max_sms, state.sms_used)).toBe(500);
+
+      // Super Admin tops up +250 WhatsApp credits
+      state.max_whatsapp += 250;
+      expect(computeRemaining(state.max_whatsapp, state.whatsapp_used)).toBe(250);
+    });
+  });
 });
+

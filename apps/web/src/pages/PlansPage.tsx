@@ -1,28 +1,20 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Tag, Check, AlertCircle } from 'lucide-react';
+import { Plus, Clock } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
-import { PageContainer } from '@/components/shared/PageContainer';
-import { PageHeader } from '@/components/shared/PageHeader';
-import { EmptyState } from '@/components/shared/EmptyState';
-import { CardGridSkeleton } from '@/components/shared/LoadingState';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { formatCurrency } from '@/lib/utils';
+import { AlertCircle } from 'lucide-react';
 
 export const PlansPage: React.FC = () => {
   const { user } = useAuth();
@@ -36,12 +28,11 @@ export const PlansPage: React.FC = () => {
 
   const plans = data?.plans || [];
 
-  // Dialog State
   const [dialogOpen, setDialogOpen] = useState(false);
   const [name, setName] = useState('');
   const [durationMonths, setDurationMonths] = useState<number>(1);
-  const [price, setPrice] = useState<number>(1500);
-  const [admissionFee, setAdmissionFee] = useState<number>(0);
+  const [priceRupees, setPriceRupees] = useState<number>(1500);
+  const [admissionFeeRupees, setAdmissionFeeRupees] = useState<number>(0);
   const [description, setDescription] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -56,8 +47,9 @@ export const PlansPage: React.FC = () => {
       await api.createPlan({
         name,
         durationMonths: Number(durationMonths),
-        price: Number(price),
-        admissionFee: Number(admissionFee) || 0,
+        pricePaise: Math.round(Number(priceRupees) * 100),
+        admissionFeePaise: Math.round(Number(admissionFeeRupees) * 100),
+        taxPercentage: 0,
         description: description || undefined,
       });
 
@@ -73,191 +65,168 @@ export const PlansPage: React.FC = () => {
   };
 
   return (
-    <AppShell title="Membership Plans" breadcrumb="Billing">
-      <PageContainer>
-        <PageHeader
-          title="Gym Plan Catalog"
-          description="Configure member packages, pricing durations, and admission fees"
-          actions={
-            canManage && (
-              <Button
-                onClick={() => {
-                  setError(null);
-                  setDialogOpen(true);
-                }}
-                className="bg-primary text-primary-foreground font-bold text-xs h-9"
+    <AppShell
+      title="Membership plans"
+      description="The catalog of packages you sell to your members. Simple, predictable, easy to tweak."
+      actions={
+        canManage && (
+          <Button size="sm" className="gt-btn-primary" onClick={() => setDialogOpen(true)}>
+            <Plus className="h-3.5 w-3.5" /> New plan
+          </Button>
+        )
+      }
+    >
+      {isLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="gt-skel h-44" />
+          ))}
+        </div>
+      ) : plans.length === 0 ? (
+        <div className="gt-empty py-16">
+          <p className="text-h2 text-ink">No plans yet.</p>
+          <p className="text-meta max-w-md">
+            Create your first membership package — pick a duration, set a price, and it becomes available at the front desk.
+          </p>
+          {canManage && (
+            <Button className="gt-btn-primary mt-3" onClick={() => setDialogOpen(true)}>
+              <Plus className="h-3.5 w-3.5" /> Create plan
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {plans.map((p: any) => {
+            const monthly = (p.price_paise / 100) / Math.max(1, p.duration_months);
+            return (
+              <article
+                key={p.id}
+                className="flex flex-col gap-4 p-6 rounded-md border border-[var(--line)] bg-[var(--surface)] hover:border-[var(--ink-3)] transition-colors"
               >
-                <Plus className="mr-1.5 size-4" /> Create Plan
-              </Button>
-            )
-          }
-        />
+                <div className="flex items-start justify-between">
+                  <div className="min-w-0">
+                    <p className="text-eyebrow">Plan</p>
+                    <h3 className="text-h2 text-ink mt-1 truncate">{p.name}</h3>
+                  </div>
+                  <span className={p.is_active ? 'gt-chip gt-chip-ok' : 'gt-chip gt-chip-muted'}>
+                    {p.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
 
-        {/* Plans Grid */}
-        {isLoading ? (
-          <CardGridSkeleton count={3} />
-        ) : plans.length === 0 ? (
-          <EmptyState
-            icon={Tag}
-            title="No membership plans created yet"
-            description='Click "+ Create Plan" to add your first membership package.'
-            action={
-              canManage ? (
-                <Button
-                  onClick={() => {
-                    setError(null);
-                    setDialogOpen(true);
-                  }}
-                  className="bg-primary text-primary-foreground font-bold text-xs"
-                >
-                  <Plus className="mr-1.5 size-4" /> Create Plan
-                </Button>
-              ) : undefined
-            }
-          />
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-            {plans.map((p) => (
-              <Card key={p.id} className="card-hover-lift border-border shadow-xs flex flex-col justify-between p-5 bg-card relative overflow-hidden group">
-                <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-primary via-emerald-400 to-[#0284C7] opacity-80 group-hover:opacity-100 transition-opacity" />
                 <div>
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <h3 className="font-display text-base font-bold text-foreground group-hover:text-primary transition-colors">{p.name}</h3>
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {p.duration_months} Month{p.duration_months > 1 ? 's' : ''} Duration
-                      </span>
-                    </div>
-                    <Badge variant="outline" className="font-mono text-[10px] text-ok border-ok/30 bg-ok/10 rounded-full">
-                      Active
-                    </Badge>
-                  </div>
-
-                  <div className="my-4">
-                    <span className="font-display text-2xl sm:text-3xl font-bold text-foreground">
-                      {formatCurrency(p.price)}
-                    </span>
-                    <span className="text-xs text-muted-foreground font-mono"> / term</span>
-                    {p.admission_fee > 0 && (
-                      <p className="text-[11px] font-mono text-muted-foreground mt-0.5">
-                        + {formatCurrency(p.admission_fee)} Admission Fee
-                      </p>
-                    )}
-                  </div>
+                  <p className="text-stat-xl num text-ink">
+                    {formatCurrency(p.price_paise)}
+                  </p>
+                  <p className="text-[11px] text-ink-3 mt-1">
+                    per {p.duration_months}-month term
+                    {' · '}
+                    <span className="num">{formatCurrency(Math.round(monthly * 100))}</span>/mo effective
+                  </p>
+                  {p.admission_fee_paise > 0 && (
+                    <p className="text-[11px] text-ink-3 mt-1">
+                      + {formatCurrency(p.admission_fee_paise)} one-time admission
+                    </p>
+                  )}
+                </div>
 
                 {p.description && (
-                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                    {p.description}
-                  </p>
+                  <p className="text-meta text-ink-2 line-clamp-2">{p.description}</p>
                 )}
-              </div>
 
-              <div className="pt-3 mt-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground font-mono">
-                <span className="text-[11px]">ID: {p.id.slice(0, 8)}</span>
-                <span className="text-primary font-semibold text-[11px]">Active in Catalog</span>
-              </div>
-            </Card>
-          ))}
+                <div className="mt-auto pt-3 border-t border-[var(--line-2)] flex items-center justify-between text-[11px] text-ink-3">
+                  <span className="inline-flex items-center gap-1">
+                    <Clock className="h-3 w-3" /> {p.duration_months} mo
+                  </span>
+                  <span className="font-mono">ID {p.id}</span>
+                </div>
+              </article>
+            );
+          })}
         </div>
       )}
 
-      {/* Create Plan Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-display">Create Membership Plan</DialogTitle>
-            <DialogDescription className="text-xs">
-              Add a new package tier to your gym catalog
-            </DialogDescription>
+            <DialogTitle>New membership plan</DialogTitle>
           </DialogHeader>
 
           {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="size-4" />
+            <Alert variant="destructive" className="mb-3">
+              <AlertCircle className="h-4 w-4" />
               <AlertDescription className="text-xs">{error}</AlertDescription>
             </Alert>
           )}
 
-          <form onSubmit={handleCreatePlan} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="planName" className="text-xs font-semibold">Plan Name *</Label>
-              <Input
-                id="planName"
+          <form onSubmit={handleCreatePlan} className="flex flex-col gap-3">
+            <Field label="Name *">
+              <input
                 required
-                placeholder="e.g. Quarterly Strength &amp; Cardio"
+                placeholder="e.g. Quarterly Strength"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="text-xs"
+                className="gt-input"
               />
-            </div>
-
+            </Field>
             <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="months" className="text-xs font-semibold">Duration (Months) *</Label>
-                <Input
-                  id="months"
+              <Field label="Duration (months) *">
+                <input
                   type="number"
                   required
                   min="1"
-                  max="36"
                   value={durationMonths}
                   onChange={(e) => setDurationMonths(Number(e.target.value))}
-                  className="text-xs font-mono"
+                  className="gt-input"
                 />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="fee" className="text-xs font-semibold">Price (₹) *</Label>
-                <Input
-                  id="fee"
+              </Field>
+              <Field label="Price (₹) *">
+                <input
                   type="number"
                   required
                   min="0"
-                  value={price}
-                  onChange={(e) => setPrice(Number(e.target.value))}
-                  className="text-xs font-mono font-bold"
+                  value={priceRupees}
+                  onChange={(e) => setPriceRupees(Number(e.target.value))}
+                  className="gt-input"
                 />
-              </div>
+              </Field>
             </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="adm" className="text-xs font-semibold">Admission Fee (₹)</Label>
-              <Input
-                id="adm"
+            <Field label="Admission fee (₹)">
+              <input
                 type="number"
                 min="0"
-                value={admissionFee}
-                onChange={(e) => setAdmissionFee(Number(e.target.value))}
-                className="text-xs font-mono"
+                value={admissionFeeRupees}
+                onChange={(e) => setAdmissionFeeRupees(Number(e.target.value))}
+                className="gt-input"
               />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="desc" className="text-xs font-semibold">Description</Label>
-              <Input
-                id="desc"
-                placeholder="Full access to gym equipment and lockers"
+            </Field>
+            <Field label="Description (optional)">
+              <textarea
+                rows={3}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="text-xs"
+                className="gt-input min-h-[72px] py-2"
+                placeholder="What does this plan include?"
               />
-            </div>
+            </Field>
 
             <DialogFooter className="mt-2">
-              <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)} className="text-xs">
+              <Button type="button" variant="outline" size="sm" onClick={() => setDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="bg-primary text-primary-foreground font-bold text-xs"
-              >
-                {isSubmitting ? 'Saving...' : 'Save Plan'}
+              <Button type="submit" size="sm" className="gt-btn-primary" disabled={isSubmitting}>
+                {isSubmitting ? 'Creating…' : 'Create plan'}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-      </PageContainer>
     </AppShell>
   );
 };
+
+const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <div className="flex flex-col gap-1.5">
+    <label className="text-xs font-medium text-ink">{label}</label>
+    {children}
+  </div>
+);

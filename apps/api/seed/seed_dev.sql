@@ -6,77 +6,105 @@
 --
 -- Apply with:  pnpm --filter @gymtech/api db:seed:local
 -- ============================================================================
+--
+-- v3 multi-tenant schema. All ids are integers, all money in paise, all
+-- timestamps in unix seconds, all enums are TEXT.
+-- ============================================================================
 
 -- Demo Gym (Single Location)
-INSERT OR IGNORE INTO gyms (id, name, slug, phone, email, address, city, state, pincode, gst_number, currency, status)
-VALUES 
-('gym_ironhouse', 'Iron House Fitness', 'iron-house-fitness', '9876543210', 'contact@ironhouse.in', 'Road No 36, Jubilee Hills', 'Hyderabad', 'Telangana', '500033', '36AAAAA0000A1Z5', 'INR', 'ACTIVE');
+INSERT OR IGNORE INTO gyms (id, name, slug, phone, email, address, city, state, pincode, gst_number, currency, status, created_at, updated_at)
+VALUES
+(1, 'Iron House Fitness', 'iron-house-fitness', '9876543210', 'contact@ironhouse.in',
+ 'Road No 36, Jubilee Hills', 'Hyderabad', 'Telangana', '500033', '36AAAAA0000A1Z5',
+ 'INR', 'ACTIVE', unixepoch(), unixepoch());
 
--- Gym Owner (belongs to gym_ironhouse)
--- SHA-256 for 'admin123'
-INSERT OR IGNORE INTO users (id, gym_id, name, email, phone, password_hash, role, status)
-VALUES 
-('usr_owner', 'gym_ironhouse', 'Vikram Rathore', 'admin@ironhouse.in', '9876543210', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', 'OWNER', 'ACTIVE');
+-- Platform Super Admin (top-level tenant bypass)
+-- password: admin123
+-- SHA-256: 240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9
+INSERT OR IGNORE INTO platform_admins (id, email, password_hash, name, status, created_at, updated_at)
+VALUES
+(1, 'admin@gymtech.app', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', 'Platform Admin', 'ACTIVE', unixepoch(), unixepoch());
+
+-- Demo license (plan metadata inlined)
+INSERT OR IGNORE INTO licenses (
+    id, gym_id, name, code, price_paise, billing_period,
+    max_members, max_owners, max_managers, max_staff_total,
+    max_sms, max_whatsapp, max_email, features,
+    started_at, expires_at, status, created_at, updated_at
+) VALUES (
+    1, 1, 'Professional', 'PRO', 1999900, 'YEARLY',
+    500, 1, 5, 10, 0, 0, 0, '{"reports": true, "qr_attendance": true, "whatsapp_links": true}',
+    unixepoch(), unixepoch() + 31536000, 'ACTIVE', unixepoch(), unixepoch()
+);
+
+-- Gym Owner (belongs to gym 1)
+-- password: admin123
+-- SHA-256: 240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9
+INSERT OR IGNORE INTO users (id, gym_id, name, email, phone, password_hash, role, status, permissions, created_at, updated_at)
+VALUES
+(1, 1, 'Vikram Rathore', 'admin@ironhouse.in', '9876543210',
+   '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9',
+   'OWNER', 'ACTIVE', '{}', unixepoch(), unixepoch());
 
 -- Gym Staff & Trainer
--- SHA-256 for 'trainer123' -> 'd302a632c4ee79ff5deefcfa9fbf49e3557e4e13e00e4708761bfcaaeef2f207'
-INSERT OR IGNORE INTO users (id, gym_id, name, email, phone, password_hash, role, status)
-VALUES 
-('usr_staff', 'gym_ironhouse', 'Anjali Sharma', 'staff@ironhouse.in', '9876543215', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', 'STAFF', 'ACTIVE'),
-('usr_trainer', 'gym_ironhouse', 'Karan Verma', 'trainer@ironhouse.in', '9876543216', 'd302a632c4ee79ff5deefcfa9fbf49e3557e4e13e00e4708761bfcaaeef2f207', 'TRAINER', 'ACTIVE');
-
--- Subscription & License for Demo Gym
-INSERT OR IGNORE INTO subscriptions (id, gym_id, plan_id, billing_cycle, status, amount, start_date, end_date)
-VALUES 
-('sub_ironhouse_pro', 'gym_ironhouse', 'plan_pro', 'YEARLY', 'ACTIVE', 1999900, unixepoch(), unixepoch() + 31536000);
-
-INSERT OR IGNORE INTO licenses (id, gym_id, subscription_id, max_members, max_staff, status, entitlements_json, expires_at)
-VALUES 
-('lic_ironhouse', 'gym_ironhouse', 'sub_ironhouse_pro', 500, 10, 'ACTIVE', '{"reports": true, "qr_attendance": true, "whatsapp_links": true}', unixepoch() + 31536000);
+-- password: trainer123
+-- SHA-256: d302a632c4ee79ff5deefcfa9fbf49e3557e4e13e00e4708761bfcaaeef2f207
+INSERT OR IGNORE INTO users (id, gym_id, name, email, phone, password_hash, role, status, permissions, created_at, updated_at)
+VALUES
+(2, 1, 'Anjali Sharma', 'staff@ironhouse.in', '9876543215',
+   '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9',
+   'STAFF', 'ACTIVE', '{}', unixepoch(), unixepoch()),
+(3, 1, 'Karan Verma', 'trainer@ironhouse.in', '9876543216',
+   'd302a632c4ee79ff5deefcfa9fbf49e3557e4e13e00e4708761bfcaaeef2f207',
+   'TRAINER', 'ACTIVE', '{}', unixepoch(), unixepoch());
 
 -- Gym Membership Plans
-INSERT OR IGNORE INTO membership_plans (id, gym_id, name, description, duration_months, price, admission_fee, is_active)
-VALUES 
-('mpl_monthly', 'gym_ironhouse', 'Monthly General Fitness', 'Standard access to gym floor and weights', 1, 150000, 50000, 1),
-('mpl_quarterly', 'gym_ironhouse', 'Quarterly Strength & Cardio', 'Includes cardio zone and standard strength machines', 3, 400000, 50000, 1),
-('mpl_half_yearly', 'gym_ironhouse', 'Half-Yearly Transform', '6 months all-inclusive access with locker', 6, 750000, 0, 1),
-('mpl_annual_vip', 'gym_ironhouse', 'Annual VIP Pass', 'Full year access + personal trainer consultation', 12, 1400000, 0, 1);
+INSERT OR IGNORE INTO membership_plans (id, gym_id, name, description, duration_months, price_paise, admission_fee_paise, tax_percentage, is_active, created_at, updated_at)
+VALUES
+(1, 1, 'Monthly General Fitness', 'Standard access to gym floor and weights', 1, 150000, 50000, 0, 1, unixepoch(), unixepoch()),
+(2, 1, 'Quarterly Strength & Cardio', 'Includes cardio zone and standard strength machines', 3, 400000, 50000, 0, 1, unixepoch(), unixepoch()),
+(3, 1, 'Half-Yearly Transform', '6 months all-inclusive access with locker', 6, 750000, 0, 0, 1, unixepoch(), unixepoch()),
+(4, 1, 'Annual VIP Pass', 'Full year access + personal trainer consultation', 12, 1400000, 0, 0, 1, unixepoch(), unixepoch());
 
 -- Demo Members
-INSERT OR IGNORE INTO members (id, gym_id, member_code, first_name, last_name, email, phone, gender, joined_date, status)
-VALUES 
-('mem_1001', 'gym_ironhouse', 'MEM-1001', 'Rahul', 'Sharma', 'rahul@example.com', '9876543210', 'MALE', unixepoch() - 7776000, 'ACTIVE'),
-('mem_1002', 'gym_ironhouse', 'MEM-1002', 'Sneha', 'Reddy', 'sneha@example.com', '9876543211', 'FEMALE', unixepoch() - 5184000, 'ACTIVE'),
-('mem_1003', 'gym_ironhouse', 'MEM-1003', 'Amit', 'Patel', 'amit@example.com', '9876543212', 'MALE', unixepoch() - 2592000, 'ACTIVE'),
-('mem_1004', 'gym_ironhouse', 'MEM-1004', 'Priya', 'Nair', 'priya@example.com', '9876543213', 'FEMALE', unixepoch() - 1296000, 'ACTIVE'),
-('mem_1005', 'gym_ironhouse', 'MEM-1005', 'Rohan', 'Gupta', 'rohan@example.com', '9876543214', 'MALE', unixepoch() - 86400, 'ACTIVE');
+INSERT OR IGNORE INTO members (id, gym_id, member_code, first_name, last_name, email, phone, gender, joined_date, status, created_at, updated_at)
+VALUES
+(1001, 1, 'MEM-1001', 'Rahul', 'Sharma', 'rahul@example.com', '9876543210', 'MALE', unixepoch() - 7776000, 'ACTIVE', unixepoch(), unixepoch()),
+(1002, 1, 'MEM-1002', 'Sneha', 'Reddy', 'sneha@example.com', '9876543211', 'FEMALE', unixepoch() - 5184000, 'ACTIVE', unixepoch(), unixepoch()),
+(1003, 1, 'MEM-1003', 'Amit', 'Patel', 'amit@example.com', '9876543212', 'MALE', unixepoch() - 2592000, 'ACTIVE', unixepoch(), unixepoch()),
+(1004, 1, 'MEM-1004', 'Priya', 'Nair', 'priya@example.com', '9876543213', 'FEMALE', unixepoch() - 1296000, 'ACTIVE', unixepoch(), unixepoch()),
+(1005, 1, 'MEM-1005', 'Rohan', 'Gupta', 'rohan@example.com', '9876543214', 'MALE', unixepoch() - 86400, 'ACTIVE', unixepoch(), unixepoch());
 
 -- Active Memberships for Members
-INSERT OR IGNORE INTO memberships (id, gym_id, member_id, membership_plan_id, start_date, end_date, total_amount, discount_amount, final_amount, paid_amount, due_amount, status)
-VALUES 
-('ms_1001', 'gym_ironhouse', 'mem_1001', 'mpl_half_yearly', unixepoch() - 2592000, unixepoch() + 12960000, 750000, 50000, 700000, 700000, 0, 'ACTIVE'),
-('ms_1002', 'gym_ironhouse', 'mem_1002', 'mpl_quarterly', unixepoch() - 5184000, unixepoch() + 2592000, 450000, 0, 450000, 300000, 150000, 'ACTIVE'),
-('ms_1003', 'gym_ironhouse', 'mem_1003', 'mpl_monthly', unixepoch() - 2000000, unixepoch() + 592000, 200000, 0, 200000, 200000, 0, 'ACTIVE'),
-('ms_1004', 'gym_ironhouse', 'mem_1004', 'mpl_annual_vip', unixepoch() - 1296000, unixepoch() + 30240000, 1400000, 100000, 1300000, 1300000, 0, 'ACTIVE'),
-('ms_1005', 'gym_ironhouse', 'mem_1005', 'mpl_quarterly', unixepoch() - 86400, unixepoch() + 7689600, 450000, 0, 450000, 450000, 0, 'ACTIVE');
+INSERT OR IGNORE INTO memberships (
+    id, gym_id, member_id, membership_plan_id, start_date, end_date,
+    total_amount_paise, discount_paise, final_amount_paise,
+    paid_amount_paise, due_amount_paise, status,
+    created_by_user_id, created_at, updated_at
+) VALUES
+(1001, 1, 1001, 3, unixepoch() - 2592000, unixepoch() + 12960000, 750000, 50000, 700000, 700000, 0, 'ACTIVE', 1, unixepoch(), unixepoch()),
+(1002, 1, 1002, 2, unixepoch() - 5184000, unixepoch() + 2592000, 450000, 0, 450000, 300000, 150000, 'ACTIVE', 1, unixepoch(), unixepoch()),
+(1003, 1, 1003, 1, unixepoch() - 2000000, unixepoch() + 592000, 200000, 0, 200000, 200000, 0, 'ACTIVE', 1, unixepoch(), unixepoch()),
+(1004, 1, 1004, 4, unixepoch() - 1296000, unixepoch() + 30240000, 1400000, 100000, 1300000, 1300000, 0, 'ACTIVE', 1, unixepoch(), unixepoch()),
+(1005, 1, 1005, 2, unixepoch() - 86400, unixepoch() + 7689600, 450000, 0, 450000, 450000, 0, 'ACTIVE', 1, unixepoch(), unixepoch());
 
 -- Demo Payments
-INSERT OR IGNORE INTO payments (id, gym_id, member_id, membership_id, receipt_number, amount, payment_date, payment_mode, reference_id, status, recorded_by_user_id)
-VALUES 
-('pay_1001', 'gym_ironhouse', 'mem_1001', 'ms_1001', 'RCP-2026-0001', 700000, unixepoch() - 2592000, 'UPI', 'UPI/202601/1001', 'COMPLETED', 'usr_owner'),
-('pay_1002', 'gym_ironhouse', 'mem_1002', 'ms_1002', 'RCP-2026-0002', 300000, unixepoch() - 5184000, 'CASH', NULL, 'COMPLETED', 'usr_owner'),
-('pay_1003', 'gym_ironhouse', 'mem_1003', 'ms_1003', 'RCP-2026-0003', 200000, unixepoch() - 2000000, 'CARD', 'POS-9831', 'COMPLETED', 'usr_staff'),
-('pay_1004', 'gym_ironhouse', 'mem_1004', 'ms_1004', 'RCP-2026-0004', 1300000, unixepoch() - 1296000, 'UPI', 'UPI/202602/4482', 'COMPLETED', 'usr_owner'),
-('pay_1005', 'gym_ironhouse', 'mem_1005', 'ms_1005', 'RCP-2026-0005', 450000, unixepoch() - 86400, 'UPI', 'UPI/202602/7719', 'COMPLETED', 'usr_owner');
+INSERT OR IGNORE INTO payments (id, gym_id, member_id, membership_id, payment_type, receipt_number, amount_paise, payment_date, payment_mode, reference_id, status, recorded_by_user_id, created_at, updated_at)
+VALUES
+(1001, 1, 1001, 1001, 'GYM', 'RCP-2026-0001', 700000, unixepoch() - 2592000, 'UPI', 'UPI/202601/1001', 'COMPLETED', 1, unixepoch(), unixepoch()),
+(1002, 1, 1002, 1002, 'GYM', 'RCP-2026-0002', 300000, unixepoch() - 5184000, 'CASH', NULL, 'COMPLETED', 1, unixepoch(), unixepoch()),
+(1003, 1, 1003, 1003, 'GYM', 'RCP-2026-0003', 200000, unixepoch() - 2000000, 'CARD', 'POS-9831', 'COMPLETED', 2, unixepoch(), unixepoch()),
+(1004, 1, 1004, 1004, 'GYM', 'RCP-2026-0004', 1300000, unixepoch() - 1296000, 'UPI', 'UPI/202602/4482', 'COMPLETED', 1, unixepoch(), unixepoch()),
+(1005, 1, 1005, 1005, 'GYM', 'RCP-2026-0005', 450000, unixepoch() - 86400, 'UPI', 'UPI/202602/7719', 'COMPLETED', 1, unixepoch(), unixepoch());
 
 -- Demo Today Attendance
-INSERT OR IGNORE INTO attendance (id, gym_id, member_id, check_in_time, date_key, method, recorded_by_user_id)
-VALUES 
-('att_1001', 'gym_ironhouse', 'mem_1001', unixepoch() - 14400, strftime('%Y-%m-%d', 'now'), 'QR_SCAN', 'usr_staff'),
-('att_1002', 'gym_ironhouse', 'mem_1002', unixepoch() - 10800, strftime('%Y-%m-%d', 'now'), 'MANUAL', 'usr_staff'),
-('att_1003', 'gym_ironhouse', 'mem_1004', unixepoch() - 7200, strftime('%Y-%m-%d', 'now'), 'MANUAL', 'usr_staff');
+INSERT OR IGNORE INTO attendance (id, gym_id, member_id, check_in_time, attendance_date, method, recorded_by_user_id, created_at)
+VALUES
+(1001, 1, 1001, unixepoch() - 14400, CAST(strftime('%Y%m%d', 'now') AS INTEGER), 'QR', 2, unixepoch()),
+(1002, 1, 1002, unixepoch() - 10800, CAST(strftime('%Y%m%d', 'now') AS INTEGER), 'MANUAL', 2, unixepoch()),
+(1003, 1, 1004, unixepoch() - 7200, CAST(strftime('%Y%m%d', 'now') AS INTEGER), 'MANUAL', 2, unixepoch());
 
 -- Demo PT Collection
-INSERT OR IGNORE INTO pt_collections (id, gym_id, member_id, trainer_id, sessions, amount, commission_percentage, commission_amount, commission_status, payment_mode, payment_date, receipt_number, notes, recorded_by_user_id)
-VALUES 
-('ptc_1001', 'gym_ironhouse', 'mem_1004', 'usr_trainer', 12, 1200000, 30, 360000, 'PENDING', 'UPI', unixepoch() - 432000, 'RCP-2026-0006', '12-session PT package', 'usr_owner');
+INSERT OR IGNORE INTO pt_collections (id, gym_id, member_id, trainer_id, sessions, amount_paise, commission_percentage, commission_paise, commission_status, payment_mode, payment_date, receipt_number, notes, recorded_by_user_id, created_at, updated_at)
+VALUES
+(1001, 1, 1004, 3, 12, 1200000, 30, 360000, 'PENDING', 'UPI', unixepoch() - 432000, 'RCP-2026-0006', '12-session PT package', 1, unixepoch(), unixepoch());

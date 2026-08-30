@@ -1,11 +1,15 @@
-import { SessionUser, UserRole } from '@gymtech/shared';
+import type { SessionUser, UserRole } from '@gymtech/shared';
 
+/**
+ * The JWT payload. Numeric ids (INTEGER PKs) and numeric gymId.
+ * `gymId === null` for platform admins.
+ */
 export interface UserSessionPayload {
-  id: string;
+  id: number;
   email: string;
   name: string;
   role: UserRole;
-  gymId: string | null;
+  gymId: number | null;
   exp: number;
 }
 
@@ -15,6 +19,15 @@ export async function hashPassword(password: string): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Base64url helpers — Cloudflare Workers do not ship Node's Buffer. */
+function b64urlEncode(s: string): string {
+  return btoa(s).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
+}
+function b64urlDecode(s: string): string {
+  const pad = s.length % 4 === 0 ? '' : '='.repeat(4 - (s.length % 4));
+  return atob(s.replace(/-/g, '+').replace(/_/g, '/') + pad);
 }
 
 export async function createSessionToken(
@@ -28,14 +41,8 @@ export async function createSessionToken(
     exp: Math.floor(Date.now() / 1000) + expiresInSeconds,
   };
 
-  const encodedHeader = btoa(JSON.stringify(header))
-    .replace(/=/g, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_');
-  const encodedPayload = btoa(JSON.stringify(payload))
-    .replace(/=/g, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_');
+  const encodedHeader = b64urlEncode(JSON.stringify(header));
+  const encodedPayload = b64urlEncode(JSON.stringify(payload));
   const dataToSign = `${encodedHeader}.${encodedPayload}`;
 
   const key = await crypto.subtle.importKey(
@@ -47,10 +54,10 @@ export async function createSessionToken(
   );
 
   const signature = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(dataToSign));
-  const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
-    .replace(/=/g, '')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_');
+  const sigBytes = new Uint8Array(signature);
+  let bin = '';
+  for (let i = 0; i < sigBytes.length; i++) bin += String.fromCharCode(sigBytes[i]);
+  const encodedSignature = btoa(bin).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_');
 
   return `${dataToSign}.${encodedSignature}`;
 }
@@ -74,7 +81,7 @@ export async function verifySessionToken(
       ['verify']
     );
 
-    const binarySignature = atob(signatureB64.replace(/-/g, '+').replace(/_/g, '/'));
+    const binarySignature = b64urlDecode(signatureB64);
     const sigBytes = new Uint8Array(binarySignature.length);
     for (let i = 0; i < binarySignature.length; i++) {
       sigBytes[i] = binarySignature.charCodeAt(i);
@@ -88,8 +95,7 @@ export async function verifySessionToken(
     );
     if (!isValid) return null;
 
-    const payloadJson = atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/'));
-    const payload = JSON.parse(payloadJson) as UserSessionPayload;
+    const payload = JSON.parse(b64urlDecode(payloadB64)) as UserSessionPayload;
 
     if (payload.exp < Math.floor(Date.now() / 1000)) {
       return null;
@@ -104,4 +110,14 @@ export async function verifySessionToken(
 export function hasAllowedRole(userRole: string | undefined | null, allowedRoles: string[]): boolean {
   if (!userRole) return false;
   return allowedRoles.includes(userRole);
+}
+
+export function payloadToSessionUser(p: UserSessionPayload): SessionUser {
+  return {
+    id: p.id,
+    email: p.email,
+    name: p.name,
+    role: p.role,
+    gymId: p.gymId,
+  };
 }

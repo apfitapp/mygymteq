@@ -1,81 +1,70 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 import { Settings, FileSpreadsheet, Zap, ArrowRight } from 'lucide-react';
-import { Card, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+
+const fadeUp = (delay = 0) => ({
+  initial: { opacity: 0, y: 6 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: '-80px' },
+  transition: { duration: 0.32, delay, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] },
+});
 
 const STEPS = [
   {
-    step: '01',
-    title: 'Configure Your Gym & Plans',
-    desc: 'Set up your membership tiers (Monthly, Quarterly, Annual), admission fees, and staff logins in under 2 minutes.',
+    n: '01',
+    title: 'Set up your gym & plans',
+    desc: 'Membership tiers, admission fees, and staff logins. Under 2 minutes.',
     icon: Settings,
-    tag: 'Quick Setup',
   },
   {
-    step: '02',
-    title: '1-Click Excel Member Import',
-    desc: 'Upload your current member register. Active package dates, phone numbers, and emergency contacts migrate seamlessly.',
+    n: '02',
+    title: 'Import your existing members',
+    desc: 'Upload your Excel register. Active package dates and phone numbers carry over cleanly.',
     icon: FileSpreadsheet,
-    tag: 'Zero Data Loss',
   },
   {
-    step: '03',
-    title: 'Start QR Check-Ins & Go Live',
-    desc: 'Put up your front-desk QR attendance code, start recording fee payments, and send instant WhatsApp bills.',
+    n: '03',
+    title: 'Open the desk and go live',
+    desc: 'QR check-ins, fee receipts on WhatsApp, and daily reports — instant.',
     icon: Zap,
-    tag: 'Instant Operation',
   },
 ];
 
 export const HowItWorks: React.FC = () => {
   return (
-    <section id="how-it-works" className="py-20 sm:py-28 bg-secondary/20 border-y border-border/40 relative">
+    <section id="how-it-works" className="py-24 sm:py-32 bg-[var(--bg)] border-t border-[var(--line)]">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16 max-w-2xl mx-auto">
-          <Badge variant="outline" className="mb-3 px-3 py-1 rounded-full border-primary/30 bg-primary/10 text-primary text-xs font-mono font-bold tracking-wider uppercase">
-            <Zap className="size-3 text-primary mr-1.5 inline" />
-            <span>SIMPLE ONBOARDING</span>
-          </Badge>
-          <h2 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-3">
-            Go live in less than an afternoon
+        <motion.div {...fadeUp(0)} className="max-w-2xl mx-auto text-center mb-14">
+          <p className="gt-kicker">Day 1, ready by 6 PM</p>
+          <h2 className="text-h1 sm:text-display-serif-sm text-ink mt-3">
+            Onboarded in an afternoon.
           </h2>
-          <p className="text-muted-foreground text-sm sm:text-base">
-            No complicated hardware setup. Run GymTech on any tablet, laptop, or smartphone with zero installation friction.
+          <p className="text-body text-ink-2 mt-4">
+            No new hardware. No installation. Open it on a tablet, laptop, or phone.
           </p>
-        </div>
+        </motion.div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-[var(--line)] border border-[var(--line)] rounded-2xl overflow-hidden">
           {STEPS.map((s, idx) => {
             const Icon = s.icon;
             return (
-              <Card
-                key={s.step}
-                className="p-6 rounded-2xl border border-border bg-card shadow-xs hover:border-primary/40 transition-all flex flex-col justify-between relative group"
+              <motion.div
+                key={s.n}
+                {...fadeUp(idx * 0.05)}
+                className="bg-[var(--surface)] p-8 hover:bg-[var(--bg)] transition-colors"
               >
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <span className="size-10 rounded-xl bg-primary/10 text-primary font-mono font-bold text-sm flex items-center justify-center">
-                      {s.step}
-                    </span>
-                    <Badge variant="secondary" className="font-mono text-[10px] text-muted-foreground">
-                      {s.tag}
-                    </Badge>
-                  </div>
-                  <CardTitle className="font-display text-base font-bold text-foreground mb-2">
-                    {s.title}
-                  </CardTitle>
-                  <CardDescription className="text-xs text-muted-foreground leading-relaxed">
-                    {s.desc}
-                  </CardDescription>
-                </div>
-
-                <div className="mt-6 pt-4 border-t border-border flex items-center justify-between text-xs font-mono text-muted-foreground">
-                  <span>Step {idx + 1} of 3</span>
-                  <span className="text-primary font-semibold flex items-center gap-1 group-hover:translate-x-0.5 transition-transform">
-                    Ready <ArrowRight className="size-3" />
+                <div className="flex items-center justify-between mb-6">
+                  <span className="size-10 rounded-lg bg-[var(--ink)] text-[var(--ink-inverse)] flex items-center justify-center">
+                    <Icon className="size-4" strokeWidth={1.5} />
                   </span>
+                  <span className="text-[11px] font-mono text-ink-3">Step {s.n}</span>
                 </div>
-              </Card>
+                <h3 className="text-h3 text-ink">{s.title}</h3>
+                <p className="text-[13px] text-ink-2 mt-2 leading-relaxed">{s.desc}</p>
+                <p className="text-[11px] text-ink-3 mt-6 inline-flex items-center gap-1">
+                  Ready <ArrowRight className="size-3" />
+                </p>
+              </motion.div>
             );
           })}
         </div>

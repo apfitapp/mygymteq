@@ -2,7 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Camera, Upload, Trash2, User, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useToast } from '@/components/ui/toast';
 import { compressAndConvertToBase64 } from '@/lib/image';
+import { cn } from '@/lib/utils';
 
 interface PhotoCaptureUploadProps {
   value?: string;
@@ -21,6 +23,9 @@ export const PhotoCaptureUpload: React.FC<PhotoCaptureUploadProps> = ({
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileSizeKb, setFileSizeKb] = useState<number | null>(null);
+  const [imgDims, setImgDims] = useState<{ w: number; h: number } | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const { toast } = useToast();
 
   // Safely attach stream to video element when webcam activates
   useEffect(() => {
@@ -44,18 +49,34 @@ export const PhotoCaptureUpload: React.FC<PhotoCaptureUploadProps> = ({
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    await processFile(file);
+  };
 
+  const processFile = async (file: File) => {
     setIsProcessing(true);
     try {
+      // Read dimensions before compression for the readout.
+      const probeUrl = URL.createObjectURL(file)
+      const probe = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const img = new Image()
+        img.onload = () => resolve(img)
+        img.onerror = reject
+        img.src = probeUrl
+      })
+      setImgDims({ w: probe.naturalWidth, h: probe.naturalHeight })
+      URL.revokeObjectURL(probeUrl)
+
       const result = await compressAndConvertToBase64(file, { maxWidth: 300, maxHeight: 300, quality: 0.75 });
       onChange(result.base64);
       setFileSizeKb(Math.round(result.sizeBytes / 1024));
+      toast('success', 'Photo uploaded', `${file.name} ready.`);
     } catch (err) {
       console.error('Failed to compress image:', err);
+      toast('error', 'Upload failed', 'Could not process this image. Try a JPG or PNG under 2 MB.')
     } finally {
       setIsProcessing(false);
     }
-  };
+  }
 
   const startWebcam = async () => {
     try {
@@ -67,7 +88,7 @@ export const PhotoCaptureUpload: React.FC<PhotoCaptureUploadProps> = ({
       setIsCapturingWebcam(true);
     } catch (err) {
       console.error('Camera error:', err);
-      alert('Camera access was not granted or is unavailable on this device.');
+      toast('error', 'Camera unavailable', 'Camera access was not granted or is unavailable on this device.');
     }
   };
 
@@ -98,6 +119,7 @@ export const PhotoCaptureUpload: React.FC<PhotoCaptureUploadProps> = ({
   const clearPhoto = () => {
     onChange('');
     setFileSizeKb(null);
+    setImgDims(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -107,10 +129,12 @@ export const PhotoCaptureUpload: React.FC<PhotoCaptureUploadProps> = ({
     <div className="flex flex-col gap-2.5">
       <span className="text-xs font-semibold text-foreground">{label}</span>
 
-      <div className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-sm border border-border bg-secondary/50">
-        
-        {/* Avatar Display Frame */}
-        <div className="relative size-20 sm:size-24 rounded-sm border-2 border-border bg-card overflow-hidden flex items-center justify-center shrink-0 shadow-xs">
+      <div className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-lg border border-border bg-secondary/50">
+
+        {/* Avatar Display Frame (3:4) */}
+        <div
+          className="relative w-20 sm:w-24 aspect-[3/4] rounded-lg border-2 border-border bg-card overflow-hidden flex items-center justify-center shrink-0 shadow-xs"
+        >
           {isCapturingWebcam ? (
             <video
               ref={(el) => {
@@ -138,6 +162,15 @@ export const PhotoCaptureUpload: React.FC<PhotoCaptureUploadProps> = ({
               <RefreshCw className="size-5 animate-spin" />
             </div>
           )}
+
+          {/* Click-to-retake hint */}
+          {value && !isCapturingWebcam && (
+            <div className="absolute inset-0 bg-black/0 hover:bg-black/40 transition-colors flex items-end justify-center opacity-0 hover:opacity-100">
+              <span className="m-1 text-[10px] font-mono text-white bg-black/60 rounded px-1.5 py-0.5">
+                Click to retake
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Action Controls */}
@@ -149,6 +182,35 @@ export const PhotoCaptureUpload: React.FC<PhotoCaptureUploadProps> = ({
             onChange={handleFileChange}
             className="hidden"
           />
+
+          {/* Drag-and-drop zone */}
+          <div
+            onDragOver={(e) => { e.preventDefault(); setIsDragOver(true) }}
+            onDragLeave={() => setIsDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault()
+              setIsDragOver(false)
+              const f = e.dataTransfer.files?.[0]
+              if (f) processFile(f)
+            }}
+            className={cn(
+              "rounded-lg border-2 border-dashed p-3 text-center transition-colors",
+              isDragOver
+                ? "border-primary bg-primary/5"
+                : "border-border bg-card/40 hover:border-primary/40"
+            )}
+            onClick={() => fileInputRef.current?.click()}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click() }}
+          >
+            <p className="text-xs text-muted-foreground">
+              <span className="font-semibold text-foreground">Drop an image</span> or click to upload
+            </p>
+            <p className="text-[10px] font-mono text-muted-foreground mt-0.5">
+              JPG / PNG / WebP · max 2 MB · 3:4 portrait
+            </p>
+          </div>
 
           {isCapturingWebcam ? (
             <div className="flex items-center gap-2">
@@ -210,11 +272,16 @@ export const PhotoCaptureUpload: React.FC<PhotoCaptureUploadProps> = ({
             </div>
           )}
 
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground flex-wrap">
             <span>WebP compressed for fast check-in</span>
-            {fileSizeKb && (
+            {fileSizeKb !== null && (
               <Badge variant="outline" className="text-[10px] font-mono bg-ok/10 text-ok border-ok/30">
                 {fileSizeKb} KB
+              </Badge>
+            )}
+            {imgDims && (
+              <Badge variant="outline" className="text-[10px] font-mono">
+                {imgDims.w} × {imgDims.h}
               </Badge>
             )}
           </div>

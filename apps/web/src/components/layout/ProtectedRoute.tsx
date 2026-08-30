@@ -8,6 +8,7 @@ interface ProtectedRouteProps {
   requireSuperAdmin?: boolean;
   allowMember?: boolean;
   allowedRoles?: UserRole[];
+  requiredFeature?: string;
 }
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
@@ -15,8 +16,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requireSuperAdmin = false,
   allowMember = false,
   allowedRoles,
+  requiredFeature,
 }) => {
-  const { user, isLoading } = useAuth();
+  const { user, gym, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -38,12 +40,19 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return <Navigate to="/portal" replace />;
   }
 
-  if (requireSuperAdmin && user.role !== 'SUPER_ADMIN') {
+  const isPlatformAdmin = user.role === 'PLATFORM_ADMIN' || (user.role as string) === 'SUPER_ADMIN';
+
+  if (requireSuperAdmin && !isPlatformAdmin) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  if (!requireSuperAdmin && user.role === 'SUPER_ADMIN') {
+  if (!requireSuperAdmin && isPlatformAdmin) {
     return <Navigate to="/admin" replace />;
+  }
+
+  // Feature authorization guard
+  if (requiredFeature && gym?.enabled_features && !gym.enabled_features.includes(requiredFeature as any)) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   // Role authorization guard

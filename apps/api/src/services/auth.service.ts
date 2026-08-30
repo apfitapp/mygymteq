@@ -1,6 +1,6 @@
 import { UserRepository } from '../repositories/user.repository';
 import { hashPassword, createSessionToken, verifySessionToken } from '../lib/session';
-import { SessionUser, Gym } from '@gymtech/shared';
+import type { SessionUser, Gym, UserRole } from '@gymtech/shared';
 
 export class AuthService {
   private userRepo: UserRepository;
@@ -30,7 +30,6 @@ export class AuthService {
         .prepare(`SELECT * FROM gyms WHERE id = ? AND deleted_at IS NULL`)
         .bind(user.gym_id)
         .first<Gym>();
-
       if (gym && gym.status === 'SUSPENDED') {
         throw new Error('This gym account has been suspended by the platform administrator');
       }
@@ -48,11 +47,40 @@ export class AuthService {
 
     const token = await createSessionToken(sessionUser, this.jwtSecret);
 
-    return {
-      token,
-      user: sessionUser,
-      gym,
+    return { token, user: sessionUser, gym };
+  }
+
+  /**
+   * Platform admin login. The session is bound to a `gymId === null` so the
+   * `requireGym` middleware will refuse tenant-scoped access.
+   */
+  async loginPlatformAdmin(email: string, passwordPlain: string): Promise<{ token: string; user: SessionUser }> {
+    const admin = await this.userRepo.findPlatformAdminByEmail(email);
+    if (!admin) {
+      throw new Error('Invalid email or password');
+    }
+    if (admin.status !== 'ACTIVE') {
+      throw new Error('This admin account is disabled');
+    }
+    const hashed = await hashPassword(passwordPlain);
+    if (hashed !== admin.password_hash) {
+      throw new Error('Invalid email or password');
+    }
+
+    await this.db
+      .prepare(`UPDATE platform_admins SET last_login_at = unixepoch() WHERE id = ?`)
+      .bind(admin.id)
+      .run();
+
+    const sessionUser: SessionUser = {
+      id: admin.id,
+      email: admin.email,
+      name: admin.name,
+      role: 'PLATFORM_ADMIN' as UserRole,
+      gymId: null,
     };
+    const token = await createSessionToken(sessionUser, this.jwtSecret);
+    return { token, user: sessionUser };
   }
 
   async getCurrentUser(user: SessionUser): Promise<{ user: SessionUser; gym?: Gym | null }> {
@@ -63,14 +91,10 @@ export class AuthService {
         .bind(user.gymId)
         .first<Gym>();
     }
-
-    return {
-      user,
-      gym,
-    };
+    return { user, gym };
   }
 
-  async signMemberToken(member: { id: string; gymId: string; memberCode: string; phone: string; name: string }): Promise<string> {
+  async signMemberToken(member: { id: number; gymId: number; memberCode: string; phone: string; name: string }): Promise<string> {
     const sessionUser: SessionUser = {
       id: member.id,
       email: `${member.memberCode.toLowerCase()}@member.gymtech.app`,

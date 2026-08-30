@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { UserCheck, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { UserCheck, RefreshCw, AlertCircle } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PhotoCaptureUpload } from '@/components/ui/PhotoCaptureUpload';
 import { api } from '@/lib/api';
 import { Member, UpdateMemberRequest } from '@gymtech/shared';
+import { extractSignatureFromUrl, serializeFaceSignature } from '@/lib/face-matcher';
 
 interface EditMemberDialogProps {
   member: Member;
@@ -36,8 +37,8 @@ export const EditMemberDialog: React.FC<EditMemberDialogProps> = ({
   const [phone, setPhone] = useState(member.phone || '');
   const [email, setEmail] = useState(member.email || '');
   const [gender, setGender] = useState<'MALE' | 'FEMALE' | 'OTHER'>((member.gender as any) || 'MALE');
-  const [status, setStatus] = useState<'ACTIVE' | 'EXPIRED' | 'FROZEN' | 'CANCELLED'>(member.status || 'ACTIVE');
-  const [dateOfBirth, setDateOfBirth] = useState(member.date_of_birth || '');
+  const [status, setStatus] = useState<NonNullable<typeof member.status>>(member.status || 'ACTIVE');
+  const [dateOfBirth, setDateOfBirth] = useState<string>(member.date_of_birth ? new Date(member.date_of_birth * 1000).toISOString().split('T')[0] : '');
   const [address, setAddress] = useState(member.address || '');
   const [emergencyContactName, setEmergencyContactName] = useState(member.emergency_contact_name || '');
   const [emergencyContactPhone, setEmergencyContactPhone] = useState(member.emergency_contact_phone || '');
@@ -55,7 +56,7 @@ export const EditMemberDialog: React.FC<EditMemberDialogProps> = ({
     setEmail(member.email || '');
     setGender((member.gender as any) || 'MALE');
     setStatus(member.status || 'ACTIVE');
-    setDateOfBirth(member.date_of_birth || '');
+    setDateOfBirth(member.date_of_birth ? new Date(member.date_of_birth * 1000).toISOString().split('T')[0] : '');
     setAddress(member.address || '');
     setEmergencyContactName(member.emergency_contact_name || '');
     setEmergencyContactPhone(member.emergency_contact_phone || '');
@@ -76,19 +77,30 @@ export const EditMemberDialog: React.FC<EditMemberDialogProps> = ({
 
     setIsSubmitting(true);
 
+    let faceEmbedding: string | undefined = undefined;
+    if (photoUrl && photoUrl !== member.photo_url) {
+      try {
+        const sig = await extractSignatureFromUrl(photoUrl);
+        if (sig) faceEmbedding = serializeFaceSignature(sig);
+      } catch (err) {
+        console.warn('Face embedding generation skipped:', err);
+      }
+    }
+
     const payload: UpdateMemberRequest = {
       firstName: firstName.trim(),
       lastName: lastName.trim() || undefined,
       phone: cleanPhone,
       email: email.trim() || undefined,
       gender,
-      status,
+      status: status as any,
       dateOfBirth: dateOfBirth || undefined,
       address: address.trim() || undefined,
       emergencyContactName: emergencyContactName.trim() || undefined,
       emergencyContactPhone: emergencyContactPhone.trim() || undefined,
       healthNotes: healthNotes.trim() || undefined,
       photoUrl: photoUrl || undefined,
+      faceEmbedding: faceEmbedding || (photoUrl === member.photo_url ? member.face_embedding || undefined : undefined),
     };
 
     try {

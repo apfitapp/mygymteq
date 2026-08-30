@@ -112,7 +112,7 @@ test.describe('Gym SaaS — Auth & Dashboard Workflows', () => {
     // Verify KPI metric cards
     await expect(page.getByText('Active members').first()).toBeVisible();
     await expect(page.getByText('142', { exact: true })).toBeVisible();
-    await expect(page.getByText("Today's Check-ins")).toBeVisible();
+    await expect(page.getByText("Today's Check-ins").first()).toBeVisible();
 
     // Verify expiring soon member
     await expect(page.getByText('Sneha Reddy')).toBeVisible();

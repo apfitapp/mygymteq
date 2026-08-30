@@ -1,52 +1,54 @@
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  ArrowLeft,
-  Calendar,
-  CreditCard,
   Phone,
-  Mail,
-  User,
   MessageCircle,
-  Clock,
-  CheckCircle2,
-  RefreshCw,
   Pencil,
   Snowflake,
   Play,
+  RefreshCw,
+  Receipt,
+  User,
+  Mail,
+  MapPin,
+  Heart,
+  Cake,
+  ChevronRight,
+  Smartphone,
 } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { GymStatusBadge } from '@/components/ui/GymStatusBadge';
-import { Skeleton } from '@/components/ui/skeleton';
 import { EditMemberDialog } from '@/components/members/EditMemberDialog';
+import { PaymentDialog } from '@/components/payments/PaymentDialog';
 import { useToast } from '@/components/ui/toast';
 import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
-import { formatCurrency, buildWhatsAppUrl } from '@/lib/utils';
+import { cn, formatCurrency } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export const MemberDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const memberId = parseInt(id || '0', 10);
+  const navigate = useNavigate();
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const canManage = user?.role === 'OWNER' || user?.role === 'MANAGER';
-  const canStaff = user?.role === 'OWNER' || user?.role === 'MANAGER' || user?.role === 'STAFF';
+  const canRecord =
+    user?.role === 'OWNER' || user?.role === 'MANAGER' || user?.role === 'STAFF';
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['member', id],
-    queryFn: () => api.getMemberDetail(id!),
-    enabled: !!id,
+    queryFn: () => api.getMemberDetail(memberId),
+    enabled: !!memberId,
   });
 
   const freezeMutation = useMutation({
     mutationFn: (action: 'freeze' | 'unfreeze') =>
-      action === 'freeze' ? api.freezeMember(id!) : api.unfreezeMember(id!),
+      action === 'freeze' ? api.freezeMember(memberId) : api.unfreezeMember(memberId),
     onSuccess: (res) => {
       toast('success', res.status === 'FROZEN' ? 'Membership paused' : 'Membership resumed', res.message);
       queryClient.invalidateQueries({ queryKey: ['member', id] });
@@ -57,364 +59,422 @@ export const MemberDetailPage: React.FC = () => {
     },
   });
 
-  const member = data?.member;
-  const activeMembership = data?.activeMembership;
-  const memberships = data?.memberships || [];
-  const payments = data?.payments || [];
-  const attendance = data?.attendance || [];
-
   if (isLoading) {
     return (
-      <AppShell title="Member Profile" breadcrumb="Members">
+      <AppShell title="Member" breadcrumb="Members">
         <div className="flex flex-col gap-6">
-          <Skeleton className="h-40 rounded-xl" />
-          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-64" />
         </div>
       </AppShell>
     );
   }
 
-  if (error || !member) {
+  if (error || !data) {
     return (
-      <AppShell title="Member Profile" breadcrumb="Members">
-        <div className="p-6 rounded-xl border border-destructive/30 bg-destructive/10 text-destructive text-sm">
-          Member not found or failed to load.
+      <AppShell title="Member not found" breadcrumb="Members">
+        <div className="p-6 rounded-md border border-[var(--danger)]/30 bg-[var(--danger-soft)] text-[var(--danger)] text-sm">
+          We couldn't find this member. They may have been deleted.
         </div>
       </AppShell>
     );
   }
 
-  const initials = `${member.first_name?.[0] || 'M'}${member.last_name ? member.last_name[0] : ''}`.toUpperCase();
-  const whatsappChatUrl = buildWhatsAppUrl(member.phone, `Hello ${member.first_name}, greeting from the gym!`);
+  const member = data.member;
+  const activeMembership = data.activeMembership as any;
+  const memberships = (data.memberships || []) as any[];
+  const payments = (data.payments || []) as any[];
+  const attendance = (data.attendance || []) as any[];
+
+  const fullName = `${member.first_name} ${member.last_name || ''}`.trim();
+  const initials = `${member.first_name?.[0] || ''}${member.last_name?.[0] || ''}`.toUpperCase() || '·';
+  const isFrozen = member.status === 'FROZEN';
+  const due = activeMembership ? (activeMembership.due_amount_paise || 0) / 100 : 0;
+  const endDate = activeMembership ? new Date(activeMembership.end_date * 1000) : null;
+  const daysToEnd = endDate ? Math.ceil((endDate.getTime() - Date.now()) / 86400000) : null;
+
+  const [isSendingWa, setIsSendingWa] = useState(false);
+  const [isSendingSms, setIsSendingSms] = useState(false);
+
+  const handleSendWhatsApp = async () => {
+    if (!member) return;
+    setIsSendingWa(true);
+    try {
+      const res = await api.dispatchNotification({
+        recipientPhone: member.phone,
+        recipientName: member.first_name,
+        channel: 'WHATSAPP',
+        type: 'CUSTOM',
+        params: { memberCode: member.member_code },
+      });
+      toast('success', 'WhatsApp Dispatched', `1 credit deducted. (${res.remainingCredits} credits remaining)`);
+      if (res.whatsappUrl) {
+        window.open(res.whatsappUrl, '_blank', 'noopener,noreferrer');
+      }
+    } catch (err: any) {
+      toast('error', 'Cannot Send WhatsApp', err.message || 'Check your message credits or contact Super Admin.');
+    } finally {
+      setIsSendingWa(false);
+    }
+  };
+
+  const handleSendSms = async () => {
+    if (!member) return;
+    setIsSendingSms(true);
+    try {
+      const res = await api.dispatchNotification({
+        recipientPhone: member.phone,
+        recipientName: member.first_name,
+        channel: 'SMS',
+        type: 'CUSTOM',
+        params: { memberCode: member.member_code },
+      });
+      toast('success', 'SMS Dispatched', `SMS sent to ${member.first_name}. 1 credit deducted. (${res.remainingCredits} credits remaining)`);
+    } catch (err: any) {
+      toast('error', 'Cannot Send SMS', err.message || 'Check your SMS credits or contact Super Admin.');
+    } finally {
+      setIsSendingSms(false);
+    }
+  };
 
   return (
-    <AppShell title={`${member.first_name} ${member.last_name || ''}`} breadcrumb="Members">
-      <div className="flex flex-col gap-6">
-        <a
-          href="#/members"
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground font-medium transition-colors w-fit"
-        >
-          <ArrowLeft className="size-3.5" /> Back to Directory
-        </a>
-
-        {/* Member Profile Header */}
-        <Card className="border-border shadow-xs bg-card p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
-            <div className="flex items-center gap-4">
-              <div className="size-16 rounded-2xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-display text-xl font-bold shrink-0 overflow-hidden shadow-xs">
+    <AppShell
+      breadcrumb={[
+        { label: 'Members', href: '#/members' },
+        { label: fullName },
+      ]}
+      title={fullName}
+      description={`Member since ${new Date(member.joined_date * 1000).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })} · ${member.member_code}`}
+      actions={
+        <>
+          <Button
+            onClick={handleSendWhatsApp}
+            disabled={isSendingWa}
+            size="sm"
+            variant="outline"
+            className="gt-btn gt-btn-secondary h-9 gap-1.5"
+            title="Dispatch WhatsApp message (1 credit deducted)"
+          >
+            <MessageCircle className="h-3.5 w-3.5 text-emerald-600" />
+            {isSendingWa ? 'Sending…' : 'WhatsApp'}
+          </Button>
+          <Button
+            onClick={handleSendSms}
+            disabled={isSendingSms}
+            size="sm"
+            variant="outline"
+            className="gt-btn gt-btn-secondary h-9 gap-1.5"
+            title="Dispatch SMS alert (1 credit deducted)"
+          >
+            <Smartphone className="h-3.5 w-3.5 text-blue-600" />
+            {isSendingSms ? 'Sending…' : 'Send SMS'}
+          </Button>
+          {canRecord && (
+            <Button onClick={() => setIsPaymentOpen(true)} size="sm" className="gt-btn-primary">
+              <Receipt className="h-3.5 w-3.5" /> Record payment
+            </Button>
+          )}
+        </>
+      }
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-10 gap-y-8">
+        {/* LEFT — identity + plan + history */}
+        <div className="lg:col-span-2 min-w-0 flex flex-col gap-10">
+          {/* Identity card */}
+          <section>
+            <div className="flex items-start gap-4">
+              <div className="h-16 w-16 rounded-md bg-[var(--surface-2)] text-ink flex items-center justify-center text-lg font-semibold shrink-0 overflow-hidden">
                 {member.photo_url ? (
-                  <img src={member.photo_url} alt={member.first_name} className="size-full object-cover" />
+                  <img src={member.photo_url} alt={fullName} className="h-full w-full object-cover" />
                 ) : (
                   initials
                 )}
               </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span
+                    className={cn(
+                      'gt-chip',
+                      isFrozen ? 'gt-chip-info' :
+                      member.status === 'BLOCKED' ? 'gt-chip-danger' :
+                      member.status === 'EXPIRED' ? 'gt-chip-warn' :
+                      'gt-chip-ok'
+                    )}
+                  >
+                    <span className="gt-dot h-1 w-1" style={{ background: 'currentColor' }} />
+                    {member.status}
+                  </span>
+                  {activeMembership && (
+                    <span className="gt-chip gt-chip-muted">
+                      {activeMembership.plan_name || 'Active plan'}
+                    </span>
+                  )}
+                </div>
 
-              <div className="flex flex-col gap-1 min-w-0">
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <h2 className="font-display text-xl sm:text-2xl font-bold text-foreground truncate">
-                    {member.first_name} {member.last_name || ''}
-                  </h2>
-                  <GymStatusBadge status={member.status} />
-                </div>
-                <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono flex-wrap">
-                  <span>ID: {member.member_code}</span>
-                  <span>•</span>
-                  <span>Joined: {new Date(member.joined_date * 1000).toLocaleDateString('en-IN')}</span>
-                </div>
+                {activeMembership ? (
+                  <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-x-6 gap-y-3">
+                    <StatCell
+                      label="Plan ends"
+                      value={endDate ? endDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '—'}
+                      tone={daysToEnd !== null && daysToEnd <= 7 ? 'warn' : 'default'}
+                      sub={daysToEnd !== null ? `${daysToEnd}d remaining` : ''}
+                    />
+                    <StatCell
+                      label="Plan fee"
+                      value={formatCurrency(activeMembership.final_amount_paise)}
+                    />
+                    <StatCell
+                      label="Paid"
+                      value={formatCurrency(activeMembership.paid_amount_paise)}
+                      tone="ok"
+                    />
+                    <StatCell
+                      label="Pending due"
+                      value={formatCurrency(activeMembership.due_amount_paise)}
+                      tone={due > 0 ? 'warn' : 'default'}
+                    />
+                  </div>
+                ) : (
+                  <p className="text-meta mt-3">No active membership. Enroll this member in a plan to get started.</p>
+                )}
+
+                {canManage && activeMembership && (
+                  <div className="mt-5 flex items-center gap-2 flex-wrap">
+                    {isFrozen ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={freezeMutation.isPending}
+                        onClick={() => freezeMutation.mutate('unfreeze')}
+                      >
+                        <Play className="h-3.5 w-3.5" /> Resume
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={freezeMutation.isPending}
+                        onClick={() => freezeMutation.mutate('freeze')}
+                      >
+                        <Snowflake className="h-3.5 w-3.5" /> Freeze
+                      </Button>
+                    )}
+                    <Button variant="outline" size="sm" onClick={() => setIsEditOpen(true)}>
+                      <Pencil className="h-3.5 w-3.5" /> Edit
+                    </Button>
+                    <Button asChild variant="outline" size="sm">
+                      <Link to={`/members/${memberId}/renew`}>
+                        <RefreshCw className="h-3.5 w-3.5" /> Renew plan
+                      </Link>
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
+          </section>
 
-            <div className="flex flex-wrap items-center gap-2.5">
-              {canStaff && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setIsEditOpen(true)}
-                  className="text-xs h-9 font-semibold gap-1.5 border-border hover:bg-secondary"
-                >
-                  <Pencil className="size-3.5" />
-                  <span>Edit Profile</span>
-                </Button>
+          {/* Contact + details */}
+          <section>
+            <SectionHeader eyebrow="Profile" title="Contact & details" />
+            <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 text-sm">
+              <DetailRow icon={<Phone className="h-3.5 w-3.5" />} label="Phone" value={member.phone} />
+              <DetailRow icon={<Mail className="h-3.5 w-3.5" />} label="Email" value={member.email || '—'} />
+              {member.address && (
+                <DetailRow
+                  icon={<MapPin className="h-3.5 w-3.5" />}
+                  label="Address"
+                  value={[member.address, member.city, member.pincode].filter(Boolean).join(', ')}
+                />
               )}
-
-              <Button asChild variant="outline" size="sm" className="text-xs h-9 text-[#25D366] hover:text-[#20BA5A] border-[#25D366]/30">
-                <a href={whatsappChatUrl} target="_blank" rel="noopener noreferrer">
-                  <MessageCircle className="size-4 mr-1.5 fill-current" /> WhatsApp
-                </a>
-              </Button>
-
-              {canManage && member.status !== 'CANCELLED' && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={freezeMutation.isPending}
-                  onClick={() => freezeMutation.mutate(member.status === 'FROZEN' ? 'unfreeze' : 'freeze')}
-                  className={`text-xs h-9 font-semibold gap-1.5 ${
-                    member.status === 'FROZEN'
-                      ? 'border-ok/40 text-ok hover:bg-ok/10'
-                      : 'border-warn/40 text-warn hover:bg-warn/10'
-                  }`}
-                >
-                  {member.status === 'FROZEN' ? (
-                    <>
-                      <Play className="size-3.5" /> Resume
-                    </>
-                  ) : (
-                    <>
-                      <Snowflake className="size-3.5" /> Freeze
-                    </>
-                  )}
-                </Button>
+              {member.date_of_birth && (
+                <DetailRow
+                  icon={<Cake className="h-3.5 w-3.5" />}
+                  label="Birthday"
+                  value={new Date(member.date_of_birth * 1000).toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })}
+                />
               )}
-
-              {canStaff && (
-                <Button asChild size="sm" className="bg-primary text-primary-foreground font-bold text-xs h-9">
-                  <a href={`#/members/${member.id}/renew`}>
-                    <RefreshCw className="size-3.5 mr-1.5" /> Renew Plan
-                  </a>
-                </Button>
+              <DetailRow
+                icon={<Heart className="h-3.5 w-3.5" />}
+                label="Emergency contact"
+                value={member.emergency_contact_name ? `${member.emergency_contact_name} (${member.emergency_contact_phone || '—'})` : '—'}
+              />
+              {member.health_notes && (
+                <DetailRow icon={<User className="h-3.5 w-3.5" />} label="Health notes" value={member.health_notes} />
               )}
-            </div>
-          </div>
-        </Card>
+            </dl>
+          </section>
 
-        {/* Edit Member Dialog */}
-        <EditMemberDialog
-          member={member}
-          open={isEditOpen}
-          onOpenChange={setIsEditOpen}
-        />
-
-        {/* Details Tabs */}
-        <Tabs defaultValue="overview" className="w-full">
-          <TabsList className="bg-surface-2 border border-border p-1">
-            <TabsTrigger value="overview" className="text-xs font-semibold">Overview</TabsTrigger>
-            <TabsTrigger value="membership" className="text-xs font-semibold">Membership ({memberships.length})</TabsTrigger>
-            <TabsTrigger value="payments" className="text-xs font-semibold">Payments ({payments.length})</TabsTrigger>
-            <TabsTrigger value="attendance" className="text-xs font-semibold">Attendance ({attendance.length})</TabsTrigger>
-          </TabsList>
-
-          {/* TAB 1: OVERVIEW */}
-          <TabsContent value="overview" className="mt-4 flex flex-col gap-5">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Active Plan Card */}
-              <Card className="border-border shadow-xs">
-                <CardHeader className="pb-3 border-b border-border">
-                  <CardTitle className="text-sm font-semibold">Current Active Package</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-4">
-                  {activeMembership ? (
-                    <div className="flex flex-col gap-3">
-                      <div className="flex items-center justify-between">
-                        <span className="font-display text-base font-bold text-foreground">
-                          {activeMembership.plan_name || 'Membership'}
-                        </span>
-                        <GymStatusBadge status={activeMembership.status} />
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3 text-xs pt-1 border-t border-border">
-                        <div>
-                          <p className="text-muted-foreground font-mono text-[10px] uppercase">Start Date</p>
-                          <p className="font-semibold text-foreground">
-                            {new Date(activeMembership.start_date * 1000).toLocaleDateString('en-IN')}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground font-mono text-[10px] uppercase">End Date</p>
-                          <p className="font-semibold text-foreground">
-                            {new Date(activeMembership.end_date * 1000).toLocaleDateString('en-IN')}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-2 text-xs pt-2 border-t border-border font-mono">
-                        <div>
-                          <p className="text-muted-foreground text-[10px]">Package Fee</p>
-                          <p className="font-bold text-foreground">{formatCurrency(activeMembership.final_amount)}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground text-[10px]">Paid</p>
-                          <p className="font-bold text-ok">{formatCurrency(activeMembership.paid_amount)}</p>
-                        </div>
-                        <div>
-                          <p className="text-muted-foreground text-[10px]">Pending Due</p>
-                          <p className={`font-bold ${activeMembership.due_amount > 0 ? 'text-destructive' : 'text-foreground'}`}>
-                            {formatCurrency(activeMembership.due_amount)}
-                          </p>
-                        </div>
-                      </div>
+          {/* Plan history */}
+          <section>
+            <SectionHeader eyebrow="History" title="Memberships" count={memberships.length} />
+            {memberships.length === 0 ? (
+              <p className="text-meta">No memberships yet.</p>
+            ) : (
+              <ul className="divide-y divide-[var(--line-2)]">
+                {memberships.map((m: any) => (
+                  <li key={m.id} className="grid grid-cols-[1fr_auto_auto] items-center gap-4 py-3">
+                    <div className="min-w-0">
+                      <p className="text-sm text-ink">{m.plan_name || 'Plan'}</p>
+                      <p className="text-[11px] text-ink-3 mt-0.5">
+                        {new Date(m.start_date * 1000).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        {' → '}
+                        {new Date(m.end_date * 1000).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
                     </div>
-                  ) : (
-                    <div className="py-6 text-center text-xs text-muted-foreground">
-                      No active membership package assigned.
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Personal & Emergency Info */}
-              <Card className="border-border shadow-xs">
-                <CardHeader className="pb-3 border-b border-border">
-                  <CardTitle className="text-sm font-semibold">Personal &amp; Contact Info</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-4 flex flex-col gap-2.5 text-xs">
-                  <div className="flex items-center justify-between py-1 border-b border-border">
-                    <span className="text-muted-foreground">Mobile Phone</span>
-                    <span className="font-mono font-semibold text-foreground">{member.phone}</span>
-                  </div>
-                  <div className="flex items-center justify-between py-1 border-b border-border">
-                    <span className="text-muted-foreground">Email</span>
-                    <span className="font-mono text-foreground">{member.email || 'None'}</span>
-                  </div>
-                  <div className="flex items-center justify-between py-1 border-b border-border">
-                    <span className="text-muted-foreground">Gender / DOB</span>
-                    <span className="text-foreground">{member.gender || 'N/A'} • {member.date_of_birth || 'N/A'}</span>
-                  </div>
-                  <div className="flex items-center justify-between py-1 border-b border-border">
-                    <span className="text-muted-foreground">Emergency Contact</span>
-                    <span className="text-foreground">
-                      {member.emergency_contact_name || 'None'} {member.emergency_contact_phone ? `(${member.emergency_contact_phone})` : ''}
+                    <span
+                      className={cn(
+                        'gt-chip',
+                        m.status === 'ACTIVE' ? 'gt-chip-ok' :
+                        m.status === 'FROZEN' ? 'gt-chip-info' :
+                        m.status === 'CANCELLED' ? 'gt-chip-muted' : 'gt-chip-warn'
+                      )}
+                    >
+                      {m.status}
                     </span>
-                  </div>
-                  <div className="flex items-center justify-between py-1">
-                    <span className="text-muted-foreground">Address</span>
-                    <span className="text-foreground truncate max-w-xs">{member.address || 'None'}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
+                    <p className="text-sm num text-ink">{formatCurrency(m.final_amount_paise)}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </div>
 
-          {/* TAB 2: MEMBERSHIP HISTORY */}
-          <TabsContent value="membership" className="mt-4">
-            <Card className="border-border shadow-xs overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-surface-2 hover:bg-surface-2">
-                    <TableHead className="font-mono text-[10px] uppercase">Plan</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase">Duration</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase">Start Date</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase">End Date</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase">Status</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase text-right">Fee</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase text-right">Due</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {memberships.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center text-xs text-muted-foreground">
-                        No recorded membership terms.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    memberships.map((ms: any) => (
-                      <TableRow key={ms.id}>
-                        <TableCell className="font-semibold text-xs text-foreground">{ms.plan_name || 'Custom'}</TableCell>
-                        <TableCell className="text-xs font-mono text-muted-foreground">{ms.duration_months || 1} mo</TableCell>
-                        <TableCell className="text-xs font-mono">{new Date(ms.start_date * 1000).toLocaleDateString('en-IN')}</TableCell>
-                        <TableCell className="text-xs font-mono">{new Date(ms.end_date * 1000).toLocaleDateString('en-IN')}</TableCell>
-                        <TableCell><GymStatusBadge status={ms.status} /></TableCell>
-                        <TableCell className="text-right text-xs font-mono font-semibold">{formatCurrency(ms.final_amount)}</TableCell>
-                        <TableCell className="text-right text-xs font-mono text-destructive font-bold">{formatCurrency(ms.due_amount)}</TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </Card>
-          </TabsContent>
+        {/* RIGHT — payments + attendance */}
+        <aside className="flex flex-col gap-10 min-w-0">
+          <section>
+            <SectionHeader eyebrow="Ledger" title="Payments" count={payments.length} link={{ label: 'All', href: '#/payments' }} />
+            {payments.length === 0 ? (
+              <p className="text-meta">No payments yet.</p>
+            ) : (
+              <ul className="flex flex-col">
+                {payments.slice(0, 8).map((p: any) => (
+                  <li
+                    key={p.id}
+                    className="grid grid-cols-[1fr_auto] items-center gap-3 py-3 border-t border-[var(--line-2)] first:border-t-0"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm num text-ink">{formatCurrency(p.amount_paise)}</p>
+                      <p className="text-[11px] text-ink-3 mt-0.5">
+                        {new Date(p.payment_date * 1000).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                        {' · '}{p.payment_mode}
+                      </p>
+                    </div>
+                    <span className="gt-chip gt-chip-muted font-mono text-[10px]">{p.receipt_number}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
-          {/* TAB 3: PAYMENT LEDGER */}
-          <TabsContent value="payments" className="mt-4">
-            <Card className="border-border shadow-xs overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-surface-2 hover:bg-surface-2">
-                    <TableHead className="font-mono text-[10px] uppercase">Receipt No</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase">Date</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase">Mode</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase">Reference</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase text-right">Amount</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase text-right">Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {payments.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={6} className="h-24 text-center text-xs text-muted-foreground">
-                        No recorded payment transactions.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    payments.map((p: any) => (
-                      <TableRow key={p.id}>
-                        <TableCell className="font-mono font-bold text-xs text-foreground">{p.receipt_number}</TableCell>
-                        <TableCell className="text-xs font-mono text-muted-foreground">
-                          {new Date(p.payment_date * 1000).toLocaleDateString('en-IN')}
-                        </TableCell>
-                        <TableCell className="text-xs font-mono">{p.payment_mode}</TableCell>
-                        <TableCell className="text-xs font-mono text-muted-foreground">{p.reference_id || '—'}</TableCell>
-                        <TableCell className="text-right text-xs font-mono font-bold text-foreground">
-                          {formatCurrency(p.amount)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-ok/10 text-ok">
-                            {p.status}
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </Card>
-          </TabsContent>
-
-          {/* TAB 4: ATTENDANCE LOGS */}
-          <TabsContent value="attendance" className="mt-4">
-            <Card className="border-border shadow-xs overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-surface-2 hover:bg-surface-2">
-                    <TableHead className="font-mono text-[10px] uppercase">Date</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase">Check-in Time</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase">Method</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {attendance.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={3} className="h-24 text-center text-xs text-muted-foreground">
-                        No attendance check-ins logged for this member.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    attendance.map((a: any) => (
-                      <TableRow key={a.id}>
-                        <TableCell className="text-xs font-mono font-semibold text-foreground">
-                          {a.date_key}
-                        </TableCell>
-                        <TableCell className="text-xs font-mono text-muted-foreground">
-                          {new Date(a.check_in_time * 1000).toLocaleTimeString('en-IN', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </TableCell>
-                        <TableCell>
-                          <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-mono bg-secondary text-foreground">
-                            {a.method}
-                          </span>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </Card>
-          </TabsContent>
-        </Tabs>
+          <section>
+            <SectionHeader eyebrow="Activity" title="Recent check-ins" count={attendance.length} link={{ label: 'Floor', href: '#/attendance' }} />
+            {attendance.length === 0 ? (
+              <p className="text-meta">No check-ins recorded.</p>
+            ) : (
+              <ul className="flex flex-col">
+                {attendance.slice(0, 8).map((a: any) => (
+                  <li
+                    key={a.id}
+                    className="grid grid-cols-[auto_1fr_auto] items-center gap-3 py-3 border-t border-[var(--line-2)] first:border-t-0"
+                  >
+                    <span className="gt-dot gt-dot-positive h-1.5 w-1.5" />
+                    <div className="min-w-0">
+                      <p className="text-sm text-ink">{a.method} check-in</p>
+                      <p className="text-[11px] text-ink-3 mt-0.5">
+                        {new Date(a.check_in_time * 1000).toLocaleString('en-IN', {
+                          day: 'numeric',
+                          month: 'short',
+                          hour: 'numeric',
+                          minute: '2-digit',
+                        })}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        </aside>
       </div>
+
+      <EditMemberDialog
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+        member={member}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ['member', id] })}
+      />
+
+      <PaymentDialog
+        open={isPaymentOpen}
+        onOpenChange={setIsPaymentOpen}
+        members={[member]}
+        onPaymentSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['member', id] });
+          queryClient.invalidateQueries({ queryKey: ['members'] });
+        }}
+      />
     </AppShell>
   );
 };
+
+/* ----------------------------- subcomponents ----------------------------- */
+
+const SectionHeader: React.FC<{
+  eyebrow: string;
+  title: string;
+  count?: number;
+  link?: { label: string; href: string };
+}> = ({ eyebrow, title, count, link }) => (
+  <div className="flex items-end justify-between gap-4 mb-4">
+    <div>
+      <p className="text-eyebrow">{eyebrow}</p>
+      <h2 className="text-h2 text-ink mt-1.5 flex items-center gap-2">
+        {title}
+        {typeof count === 'number' && <span className="text-h3 text-ink-3 num">{count}</span>}
+      </h2>
+    </div>
+    {link && (
+      <a
+        href={link.href}
+        className="text-xs text-ink-3 hover:text-ink inline-flex items-center gap-1"
+      >
+        {link.label} <ChevronRight className="h-3 w-3" />
+      </a>
+    )}
+  </div>
+);
+
+const StatCell: React.FC<{
+  label: string;
+  value: string;
+  sub?: string;
+  tone?: 'default' | 'ok' | 'warn';
+}> = ({ label, value, sub, tone = 'default' }) => (
+  <div>
+    <p className="text-eyebrow">{label}</p>
+    <p
+      className={cn(
+        'text-stat-md mt-1.5 num',
+        tone === 'ok' && 'text-[var(--positive)]',
+        tone === 'warn' && 'text-[var(--warning)]'
+      )}
+    >
+      {value}
+    </p>
+    {sub && <p className="text-[11px] text-ink-3 mt-0.5">{sub}</p>}
+  </div>
+);
+
+const DetailRow: React.FC<{
+  icon?: React.ReactNode;
+  label: string;
+  value: string;
+}> = ({ icon, label, value }) => (
+  <div className="flex items-start gap-3">
+    {icon && <span className="mt-0.5 text-ink-3">{icon}</span>}
+    <div className="min-w-0 flex-1">
+      <p className="text-eyebrow">{label}</p>
+      <p className="text-sm text-ink mt-1 break-words">{value}</p>
+    </div>
+  </div>
+);

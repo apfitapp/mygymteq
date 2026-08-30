@@ -9,19 +9,12 @@
       "binding": "DB",
       "database_name": "gym-d1-prod",
       "database_id": "46bf7b9d-0284-4f4d-b91e-2caafe5289cf",
-      "migrations_dir": "migrations"
-    }
+      "migrations_dir": "migrations",
+    },
   ],
-  // Enable once R2 is activated in Cloudflare Dashboard:
-  // "r2_buckets": [
-  //   {
-  //     "binding": "MEDIA_BUCKET",
-  //     "bucket_name": "gym-media-prod"
-  //   }
-  // ],
   "vars": {
     "JWT_SECRET": "gym-saas-jwt-super-secret-production-key-2026",
     "APP_ENV": "production",
-    "CORS_ORIGINS": "*"
-  }
+    "CORS_ORIGINS": "*",
+  },
 }

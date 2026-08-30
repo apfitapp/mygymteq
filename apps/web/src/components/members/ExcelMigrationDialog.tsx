@@ -10,7 +10,6 @@ import {
   FileCheck,
   RefreshCw,
   Users,
-  AlertTriangle,
 } from 'lucide-react';
 import {
   Dialog,
@@ -37,7 +36,7 @@ export const ExcelMigrationDialog: React.FC<ExcelMigrationDialogProps> = ({ open
 
   const [parsedRows, setParsedRows] = useState<BulkImportMemberRow[]>([]);
   const [fileName, setFileName] = useState<string | null>(null);
-  const [selectedPlanId, setSelectedPlanId] = useState<string>('');
+  const [selectedPlanId, setSelectedPlanId] = useState<number | undefined>(undefined);
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<{
     importedCount: number;
@@ -120,8 +119,10 @@ export const ExcelMigrationDialog: React.FC<ExcelMigrationDialogProps> = ({ open
       const planName = getVal(['plan', 'package', 'membership']);
       const startDate = getVal(['start', 'joining', 'join', 'date']);
       const endDate = getVal(['end', 'expiry', 'valid']);
-      const paidAmount = parseFloat(getVal(['paid', 'amountpaid', 'fees'])) || 0;
-      const dueAmount = parseFloat(getVal(['due', 'pending', 'balance'])) || 0;
+      const paidRupees = parseFloat(getVal(['paid', 'amountpaid', 'fees'])) || 0;
+      const dueRupees = parseFloat(getVal(['due', 'pending', 'balance'])) || 0;
+      const paidPaise = Math.round(paidRupees * 100);
+      const duePaise = Math.round(dueRupees * 100);
 
       if (firstName && phone) {
         rows.push({
@@ -133,8 +134,8 @@ export const ExcelMigrationDialog: React.FC<ExcelMigrationDialogProps> = ({ open
           planName,
           startDate,
           endDate,
-          paidAmount,
-          dueAmount,
+          paidPaise,
+          duePaise,
         });
       }
     }
@@ -344,14 +345,14 @@ export const ExcelMigrationDialog: React.FC<ExcelMigrationDialogProps> = ({ open
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2 p-2.5 rounded-sm bg-secondary/50 border border-border text-xs">
                   <span className="font-semibold text-foreground shrink-0">Fallback Plan:</span>
                   <select
-                    value={selectedPlanId}
-                    onChange={(e) => setSelectedPlanId(e.target.value)}
+                    value={selectedPlanId ?? ''}
+                    onChange={(e) => setSelectedPlanId(e.target.value ? parseInt(e.target.value, 10) : undefined)}
                     className="h-8 px-2 rounded-xs bg-card border border-border text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary w-full sm:max-w-xs"
                   >
                     <option value="">Auto-match plan name or use standard default</option>
                     {plans.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.name} (₹{((p.price + p.admission_fee) / 100).toLocaleString('en-IN')})
+                        {p.name} (₹{((p.price_paise + p.admission_fee_paise) / 100).toLocaleString('en-IN')})
                       </option>
                     ))}
                   </select>
@@ -387,10 +388,10 @@ export const ExcelMigrationDialog: React.FC<ExcelMigrationDialogProps> = ({ open
                           {row.planName || 'Default Active Plan'}
                         </TableCell>
                         <TableCell className="text-right font-mono font-bold text-foreground">
-                          {row.paidAmount ? `₹${row.paidAmount.toLocaleString('en-IN')}` : '₹0'}
+                          {row.paidPaise ? `₹${(row.paidPaise / 100).toLocaleString('en-IN')}` : '₹0'}
                         </TableCell>
                         <TableCell className="text-right font-mono font-semibold text-destructive">
-                          {row.dueAmount ? `₹${row.dueAmount.toLocaleString('en-IN')}` : '—'}
+                          {row.duePaise ? `₹${(row.duePaise / 100).toLocaleString('en-IN')}` : '—'}
                         </TableCell>
                       </TableRow>
                     ))}

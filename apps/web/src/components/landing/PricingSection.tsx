@@ -1,164 +1,190 @@
 import React, { useState } from 'react';
-import { Check, IndianRupee, Sparkles } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Check, ArrowRight, IndianRupee } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+
+const fadeUp = (delay = 0) => ({
+  initial: { opacity: 0, y: 6 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true, margin: '-80px' },
+  transition: { duration: 0.32, delay, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] },
+});
+
+interface Plan {
+  name: string;
+  blurb: string;
+  monthly: number;
+  yearly: number;
+  cta: string;
+  features: string[];
+  highlight?: boolean;
+}
+
+const PLANS: Plan[] = [
+  {
+    name: 'Starter',
+    blurb: 'For a single-floor gym, just getting online.',
+    monthly: 1499,
+    yearly: 14999,
+    cta: 'Start with Starter',
+    features: [
+      'Up to 100 active members',
+      '3 staff logins',
+      'QR + manual attendance',
+      'Payments & dues tracker',
+      'WhatsApp receipts',
+      'Email support',
+    ],
+  },
+  {
+    name: 'Pro',
+    blurb: 'For a busy gym with trainers and renewals.',
+    monthly: 3499,
+    yearly: 34999,
+    cta: 'Choose Pro',
+    highlight: true,
+    features: [
+      'Up to 500 active members',
+      '10 staff logins',
+      'Everything in Starter',
+      'PT collections & commissions',
+      'Advanced reports',
+      'Excel / CSV export',
+      'Priority support',
+    ],
+  },
+  {
+    name: 'Enterprise',
+    blurb: 'For multi-branch operators and chains.',
+    monthly: 7499,
+    yearly: 74999,
+    cta: 'Talk to us',
+    features: [
+      'Unlimited members',
+      'Unlimited staff logins',
+      'Everything in Pro',
+      'Multi-branch tenants',
+      'Custom API integrations',
+      'Dedicated onboarding',
+      '4-hour support SLA',
+    ],
+  },
+];
+
+const fmtRupees = (n: number) => '₹' + n.toLocaleString('en-IN');
 
 export const PricingSection: React.FC = () => {
-  const [billingYearly, setBillingYearly] = useState(false);
+  const [yearly, setYearly] = useState(false);
 
   return (
-    <section id="pricing" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20 border-t border-border/50">
-      <div className="text-center mb-12 max-w-2xl mx-auto">
-        <Badge variant="outline" className="mb-3 px-3 py-1 rounded-full border-primary/30 bg-primary/10 text-primary text-xs font-mono font-bold tracking-wider uppercase">
-          <IndianRupee className="size-3 mr-1.5 inline" />
-          <span>TRANSPARENT PRICING</span>
-        </Badge>
-        <h2 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-3">
-          Predictable pricing for gyms of all sizes
-        </h2>
-        <p className="text-muted-foreground text-sm sm:text-base">
-          No setup fees. No hidden charges. All plans include the owner dashboard, QR attendance, and WhatsApp receipts.
+    <section id="pricing" className="py-24 sm:py-32 border-t border-[var(--line)] bg-[var(--surface)]">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <motion.div {...fadeUp(0)} className="max-w-2xl mx-auto text-center mb-10">
+          <p className="gt-kicker">Pricing</p>
+          <h2 className="text-h1 sm:text-display-serif-sm text-ink mt-3">
+            Simple, per-gym pricing.
+          </h2>
+          <p className="text-body text-ink-2 mt-4">
+            All plans include the owner dashboard, QR attendance, and WhatsApp receipts. No setup fees, ever.
+          </p>
+        </motion.div>
+
+        {/* Toggle */}
+        <motion.div {...fadeUp(0.05)} className="flex items-center justify-center mb-10">
+          <div
+            role="tablist"
+            aria-label="Billing period"
+            className="inline-flex items-center gap-1 p-1 bg-[var(--surface-2)] border border-[var(--line)] rounded-lg"
+          >
+            {(['monthly', 'yearly'] as const).map((v) => {
+              const active = (v === 'yearly') === yearly;
+              return (
+                <button
+                  key={v}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setYearly(v === 'yearly')}
+                  className={
+                    'px-3.5 h-8 text-xs font-medium rounded-md transition-colors inline-flex items-center gap-1.5 ' +
+                    (active
+                      ? 'bg-[var(--ink)] text-[var(--ink-inverse)]'
+                      : 'text-ink-2 hover:text-ink')
+                  }
+                >
+                  {v === 'monthly' ? 'Monthly' : 'Yearly'}
+                  {v === 'yearly' && (
+                    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[var(--positive-soft)] text-[var(--positive)]">
+                      Save 2 months
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </motion.div>
+
+        {/* Plans */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-px bg-[var(--line)] border border-[var(--line)] rounded-2xl overflow-hidden">
+          {PLANS.map((p, idx) => (
+            <motion.div
+              key={p.name}
+              {...fadeUp(idx * 0.05)}
+              className={
+                'p-8 flex flex-col bg-[var(--surface)] ' +
+                (p.highlight ? 'bg-[var(--bg)]' : '')
+              }
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-h3 text-ink">{p.name}</h3>
+                {p.highlight && (
+                  <span className="gt-tag" data-tone="iron">Most popular</span>
+                )}
+              </div>
+              <p className="text-[13px] text-ink-3 leading-relaxed min-h-[3em]">{p.blurb}</p>
+
+              <div className="mt-6 flex items-baseline gap-1.5">
+                <span className="text-display-serif-sm text-ink num">
+                  {fmtRupees(yearly ? p.yearly : p.monthly)}
+                </span>
+                <span className="text-[12px] text-ink-3">
+                  /{yearly ? 'year' : 'month'}
+                </span>
+              </div>
+              <p className="text-[11px] text-ink-3 mt-1">
+                {yearly ? 'Billed annually' : 'Billed monthly · cancel anytime'}
+              </p>
+
+              <Button
+                asChild
+                className={
+                  'mt-6 h-10 gap-1.5 ' +
+                  (p.highlight
+                    ? 'bg-[var(--ink)] text-[var(--ink-inverse)] hover:bg-[var(--ink-2)] border-[var(--ink)]'
+                    : 'bg-[var(--surface)] text-ink hover:bg-[var(--surface-2)] border-[var(--line)]')
+                }
+              >
+                <a href="#/login">
+                  {p.cta}
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </a>
+              </Button>
+
+              <ul className="mt-7 flex flex-col gap-2.5">
+                {p.features.map((f) => (
+                  <li key={f} className="flex items-start gap-2 text-[13px] text-ink-2">
+                    <Check className="h-3.5 w-3.5 text-[var(--positive)] shrink-0 mt-0.5" />
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+          ))}
+        </div>
+
+        <p className="mt-6 text-center text-[12px] text-ink-3">
+          All prices in INR, exclusive of GST. Need a custom plan? <a href="#/contact" className="text-ink underline underline-offset-2">Talk to us</a>.
         </p>
-
-        {/* Monthly / Yearly Switcher */}
-        <div className="inline-flex items-center gap-1 mt-6 p-1 bg-secondary/80 border border-border rounded-lg shadow-2xs">
-          <button
-            type="button"
-            onClick={() => setBillingYearly(false)}
-            className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all ${
-              !billingYearly ? 'bg-card text-foreground shadow-xs font-semibold' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            Monthly
-          </button>
-          <button
-            type="button"
-            onClick={() => setBillingYearly(true)}
-            className={`px-4 py-1.5 rounded-md text-xs font-medium transition-all flex items-center gap-1.5 ${
-              billingYearly ? 'bg-card text-foreground shadow-xs font-semibold' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <span>Annual</span>
-            <span className="text-[10px] font-mono text-primary bg-primary/10 px-1.5 py-0.5 rounded font-bold">
-              Save 17%
-            </span>
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
-        {/* Starter Tier */}
-        <Card className="p-6 flex flex-col justify-between border-border shadow-xs bg-card rounded-xl">
-          <div>
-            <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-muted-foreground">For Small Studios</p>
-            <CardTitle className="text-lg font-display font-bold text-foreground mt-1">Starter</CardTitle>
-            <CardDescription className="text-xs text-muted-foreground pt-1 min-h-[36px]">
-              Perfect for boutique fitness studios and single-owner gyms.
-            </CardDescription>
-            <div className="my-5 pb-4 border-b border-border">
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-display font-bold text-foreground">
-                  ₹{(billingYearly ? 9999 : 999).toLocaleString('en-IN')}
-                </span>
-                <span className="text-muted-foreground text-xs font-mono">/{billingYearly ? 'yr' : 'mo'}</span>
-              </div>
-              {billingYearly && <p className="text-[11px] text-primary font-mono mt-1">≈ ₹833/month billed yearly</p>}
-            </div>
-            <ul className="space-y-2.5 text-xs text-muted-foreground">
-              <li className="flex items-center gap-2"><Check className="size-3.5 text-primary shrink-0" /> Up to 100 active members</li>
-              <li className="flex items-center gap-2"><Check className="size-3.5 text-primary shrink-0" /> 3 staff &amp; trainer logins</li>
-              <li className="flex items-center gap-2"><Check className="size-3.5 text-primary shrink-0" /> Owner console &amp; member portal</li>
-              <li className="flex items-center gap-2"><Check className="size-3.5 text-primary shrink-0" /> QR &amp; manual attendance desk</li>
-              <li className="flex items-center gap-2"><Check className="size-3.5 text-primary shrink-0" /> Payments, invoices &amp; dues</li>
-              <li className="flex items-center gap-2"><Check className="size-3.5 text-primary shrink-0" /> WhatsApp receipts &amp; reminders</li>
-            </ul>
-          </div>
-          <div className="mt-8">
-            <Button asChild variant="outline" className="w-full justify-center text-xs rounded-lg h-9 font-medium">
-              <a href="#/login">Get Started</a>
-            </Button>
-          </div>
-        </Card>
-
-        {/* Professional Tier (Highlighted) */}
-        <Card className="p-6 h-full flex flex-col justify-between border-primary/50 ring-1 ring-primary/40 shadow-md relative bg-card rounded-xl">
-          <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[10px] font-mono font-bold uppercase tracking-widest px-3 py-0.5 rounded-full shadow-xs">
-            Most Popular
-          </div>
-          <div>
-            <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-primary">For Growing Gyms</p>
-            <CardTitle className="text-lg font-display font-bold text-foreground mt-1">Professional</CardTitle>
-            <CardDescription className="text-xs text-muted-foreground pt-1 min-h-[36px]">
-              For high-footfall clubs with active trainers and PT clients.
-            </CardDescription>
-            <div className="my-5 pb-4 border-b border-border">
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-display font-bold text-primary">
-                  ₹{(billingYearly ? 19999 : 1999).toLocaleString('en-IN')}
-                </span>
-                <span className="text-muted-foreground text-xs font-mono">/{billingYearly ? 'yr' : 'mo'}</span>
-              </div>
-              {billingYearly && <p className="text-[11px] text-primary font-mono mt-1">≈ ₹1,667/month billed yearly</p>}
-            </div>
-            <ul className="space-y-2.5 text-xs text-muted-foreground">
-              <li className="flex items-center gap-2 font-medium text-foreground"><Check className="size-3.5 text-primary shrink-0" /> Everything in Starter</li>
-              <li className="flex items-center gap-2"><Check className="size-3.5 text-primary shrink-0" /> Up to 500 active members</li>
-              <li className="flex items-center gap-2"><Check className="size-3.5 text-primary shrink-0" /> 10 staff &amp; trainer logins</li>
-              <li className="flex items-center gap-2"><Check className="size-3.5 text-primary shrink-0" /> PT collections &amp; commission splits</li>
-              <li className="flex items-center gap-2"><Check className="size-3.5 text-primary shrink-0" /> Advanced reports &amp; Excel export</li>
-              <li className="flex items-center gap-2"><Check className="size-3.5 text-primary shrink-0" /> Priority WhatsApp support</li>
-            </ul>
-          </div>
-          <div className="mt-8">
-            <Button asChild className="w-full justify-center text-xs rounded-lg h-9 bg-primary text-primary-foreground font-semibold shadow-xs hover:bg-primary/90">
-              <a href="#/login">Get Started</a>
-            </Button>
-          </div>
-        </Card>
-
-        {/* Enterprise Tier */}
-        <Card className="p-6 flex flex-col justify-between border-border shadow-xs bg-card rounded-xl">
-          <div>
-            <p className="text-[10px] font-mono font-bold uppercase tracking-widest text-muted-foreground">For Chains &amp; Franchises</p>
-            <CardTitle className="text-lg font-display font-bold text-foreground mt-1">Enterprise</CardTitle>
-            <CardDescription className="text-xs text-muted-foreground pt-1 min-h-[36px]">
-              For multi-location gym chains, franchises, and large facilities.
-            </CardDescription>
-            <div className="my-5 pb-4 border-b border-border">
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-display font-bold text-foreground">
-                  ₹{(billingYearly ? 39999 : 3999).toLocaleString('en-IN')}
-                </span>
-                <span className="text-muted-foreground text-xs font-mono">/{billingYearly ? 'yr' : 'mo'}</span>
-              </div>
-              {billingYearly && <p className="text-[11px] text-primary font-mono mt-1">≈ ₹3,333/month billed yearly</p>}
-            </div>
-            <ul className="space-y-2.5 text-xs text-muted-foreground">
-              <li className="flex items-center gap-2 font-medium text-foreground"><Check className="size-3.5 text-primary shrink-0" /> Everything in Professional</li>
-              <li className="flex items-center gap-2"><Check className="size-3.5 text-primary shrink-0" /> Unlimited members &amp; staff</li>
-              <li className="flex items-center gap-2"><Check className="size-3.5 text-primary shrink-0" /> Multi-branch tenant support</li>
-              <li className="flex items-center gap-2"><Check className="size-3.5 text-primary shrink-0" /> Dedicated onboarding specialist</li>
-              <li className="flex items-center gap-2"><Check className="size-3.5 text-primary shrink-0" /> Custom API integrations &amp; SLA</li>
-            </ul>
-          </div>
-          <div className="mt-8">
-            <Button asChild variant="outline" className="w-full justify-center text-xs rounded-lg h-9 font-medium">
-              <a href="#/login">Contact Sales</a>
-            </Button>
-          </div>
-        </Card>
-      </div>
-
-      {/* Launch Offer Callout */}
-      <div className="max-w-3xl mx-auto mt-10 rounded-xl border border-primary/20 bg-primary/5 p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-        <div className="text-center sm:text-left">
-          <p className="text-xs font-bold text-foreground">Free 1-on-1 Onboarding + Data Migration</p>
-          <p className="text-[11px] text-muted-foreground">Switch over without losing any past member history, package dates, or payments.</p>
-        </div>
-        <Button asChild size="sm" className="rounded-lg bg-primary text-primary-foreground font-semibold text-xs h-8 px-4 shrink-0 shadow-xs hover:bg-primary/90">
-          <a href="#/login">Claim Free Migration</a>
-        </Button>
       </div>
     </section>
   );

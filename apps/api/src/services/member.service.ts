@@ -3,9 +3,21 @@ import { MembershipRepository } from '../repositories/membership.repository';
 import { PlanRepository } from '../repositories/plan.repository';
 import { PaymentRepository } from '../repositories/payment.repository';
 import { AttendanceRepository } from '../repositories/attendance.repository';
+import { AuditService } from './audit.service';
 import { NotificationService } from '../lib/notifications';
-import { calculateMembershipFinancials, calculateMembershipEndDate, isWithinLicenseLimit } from '../lib/calculations';
-import { Member, Membership, Payment, Attendance, PaymentMode } from '@gymtech/shared';
+import {
+  calculateMembershipFinancials,
+  calculateMembershipEndDate,
+  isWithinLicenseLimit,
+} from '../lib/calculations';
+import type {
+  Member,
+  Membership,
+  Payment,
+  Attendance,
+  PaymentMode,
+  Gender,
+} from '@gymtech/shared';
 
 export class MemberService {
   private memberRepo: MemberRepository;
@@ -13,11 +25,12 @@ export class MemberService {
   private planRepo: PlanRepository;
   private paymentRepo: PaymentRepository;
   private attendanceRepo: AttendanceRepository;
+  private audit: AuditService;
 
   constructor(
     private db: D1Database,
-    private gymId: string,
-    private userId: string,
+    private gymId: number,
+    private userId: number,
     private gymName: string = 'Our Gym'
   ) {
     this.memberRepo = new MemberRepository(db, gymId);
@@ -25,6 +38,7 @@ export class MemberService {
     this.planRepo = new PlanRepository(db, gymId);
     this.paymentRepo = new PaymentRepository(db, gymId);
     this.attendanceRepo = new AttendanceRepository(db, gymId);
+    this.audit = new AuditService(db);
   }
 
   async createMemberWithPlan(data: {
@@ -33,21 +47,25 @@ export class MemberService {
     phone: string;
     email?: string;
     gender?: 'MALE' | 'FEMALE' | 'OTHER';
-    dateOfBirth?: string;
-    joinedDate?: string;
+    dateOfBirth?: number;
+    joinedDate?: number;
     photoUrl?: string;
+    faceEmbedding?: string;
     address?: string;
+    city?: string;
+    pincode?: string;
     emergencyContactName?: string;
     emergencyContactPhone?: string;
-    planId: string;
-    discountAmount?: number;
-    initialPaymentAmount?: number;
+    healthNotes?: string;
+    planId: number;
+    discountPaise?: number;
+    initialPaymentPaise?: number;
     paymentMode?: PaymentMode;
     referenceId?: string;
   }) {
-    // 1. Enforce Commercial License Limits (e.g. up to 100 on Starter)
+    // 1. License limit check
     const license = await this.db
-      .prepare('SELECT max_members FROM licenses WHERE gym_id = ? AND status = "ACTIVE"')
+      .prepare(`SELECT max_members FROM licenses WHERE gym_id = ?`)
       .bind(this.gymId)
       .first<{ max_members: number }>();
 
@@ -55,97 +73,95 @@ export class MemberService {
       const activeCount = await this.memberRepo.countActive();
       if (!isWithinLicenseLimit(activeCount, license.max_members)) {
         throw new Error(
-          `Commercial plan limit reached (maximum ${license.max_members} active members). Please upgrade your platform subscription to enroll more members.`
+          `License limit reached (maximum ${license.max_members} active members). Please upgrade.`
         );
       }
     }
 
-    // 2. Validate Membership Plan
     const plan = await this.planRepo.findById(data.planId);
     if (!plan) {
       throw new Error('Selected membership plan does not exist or is inactive');
     }
 
-    // 2. Generate IDs
-    const memberId = `mem_${crypto.randomUUID().slice(0, 8)}`;
     const memberCode = await this.memberRepo.getNextMemberCode();
-    const joinedTimestamp = data.joinedDate
-      ? Math.floor(new Date(data.joinedDate).getTime() / 1000)
-      : Math.floor(Date.now() / 1000);
+    const joinedTimestamp = data.joinedDate ?? Math.floor(Date.now() / 1000);
 
-    // 3. Create Member
-    await this.memberRepo.create({
-      id: memberId,
+    const memberId = await this.memberRepo.create({
       member_code: memberCode,
       first_name: data.firstName.trim(),
-      last_name: data.lastName?.trim() || null,
-      email: data.email?.trim() || null,
+      last_name: data.lastName?.trim() ?? null,
+      email: data.email?.trim() ?? null,
       phone: data.phone.trim(),
-      gender: data.gender || null,
-      date_of_birth: data.dateOfBirth || null,
-      photo_url: data.photoUrl || null,
-      address: data.address || null,
-      emergency_contact_name: data.emergencyContactName || null,
-      emergency_contact_phone: data.emergencyContactPhone || null,
+      gender: (data.gender ?? null) as Gender,
+      date_of_birth: data.dateOfBirth ?? null,
+      photo_url: data.photoUrl ?? null,
+      face_embedding: data.faceEmbedding ?? null,
+      address: data.address ?? null,
+      city: data.city ?? null,
+      pincode: data.pincode ?? null,
+      emergency_contact_name: data.emergencyContactName ?? null,
+      emergency_contact_phone: data.emergencyContactPhone ?? null,
+      health_notes: data.healthNotes ?? null,
+      status: 'ACTIVE',
       joined_date: joinedTimestamp,
     });
 
-    // 4. Calculate Dates and Financials
     const startTimestamp = joinedTimestamp;
     const endTimestamp = calculateMembershipEndDate(startTimestamp, plan.duration_months);
 
-    const { totalAmount, discountAmount, finalAmount, paidAmount, dueAmount } = calculateMembershipFinancials({
-      planPrice: plan.price,
-      admissionFee: plan.admission_fee,
-      discountAmount: (data.discountAmount || 0) * 100,
-      initialPaymentAmount: (data.initialPaymentAmount || 0) * 100,
+    const fin = calculateMembershipFinancials({
+      planPrice: plan.price_paise,
+      admissionFee: plan.admission_fee_paise ?? 0,
+      discountAmount: data.discountPaise ?? 0,
+      initialPaymentAmount: data.initialPaymentPaise ?? 0,
     });
 
-    const membershipId = `ms_${crypto.randomUUID().slice(0, 8)}`;
-
-    await this.membershipRepo.create({
-      id: membershipId,
+    const membershipId = await this.membershipRepo.create({
       member_id: memberId,
       membership_plan_id: plan.id,
       start_date: startTimestamp,
       end_date: endTimestamp,
-      total_amount: totalAmount,
-      discount_amount: discountAmount,
-      final_amount: finalAmount,
-      paid_amount: paidAmount,
-      due_amount: dueAmount,
+      total_amount_paise: fin.totalAmount,
+      discount_paise: fin.discountAmount,
+      final_amount_paise: fin.finalAmount,
+      paid_amount_paise: fin.paidAmount,
+      due_amount_paise: fin.dueAmount,
+      created_by_user_id: this.userId,
     });
 
-    // 5. Record Initial Payment
     let receiptNumber: string | undefined;
-    let payment: Payment | null = null;
-    if (paidAmount > 0) {
-      const paymentId = `pay_${crypto.randomUUID().slice(0, 8)}`;
+    if (fin.paidAmount > 0) {
       receiptNumber = await this.paymentRepo.getNextReceiptNumber();
-
       await this.paymentRepo.record({
-        id: paymentId,
         member_id: memberId,
         membership_id: membershipId,
         receipt_number: receiptNumber,
-        amount: paidAmount,
+        amount_paise: fin.paidAmount,
         payment_date: startTimestamp,
-        payment_mode: data.paymentMode || 'CASH',
-        reference_id: data.referenceId || null,
+        payment_mode: data.paymentMode ?? 'CASH',
+        reference_id: data.referenceId ?? null,
         recorded_by_user_id: this.userId,
         notes: `Initial payment on registration for ${plan.name}`,
+        payment_type: 'GYM',
       });
     }
 
-    // 6. WhatsApp Welcome
     const notif = new NotificationService(this.gymName);
     const whatsappUrl = notif.generateWhatsAppUrl({
       recipientPhone: data.phone,
-      recipientName: `${data.firstName} ${data.lastName || ''}`.trim(),
+      recipientName: `${data.firstName} ${data.lastName ?? ''}`.trim(),
       type: 'WELCOME',
-      params: {
-        memberCode,
-      },
+      params: { memberCode },
+    });
+
+    await this.audit.recordGymEvent({
+      gymId: this.gymId,
+      actorUserId: this.userId,
+      actorRole: 'STAFF',
+      action: 'member.create',
+      entityType: 'member',
+      entityId: memberId,
+      afterState: { memberCode, planId: plan.id, fin },
     });
 
     const createdMember = await this.memberRepo.findById(memberId);
@@ -160,115 +176,104 @@ export class MemberService {
   }
 
   async renewMembership(data: {
-    memberId: string;
-    planId: string;
-    startDate?: string;
-    discountAmount?: number;
-    paymentAmount?: number;
+    memberId: number;
+    planId: number;
+    startDate?: number;
+    discountPaise?: number;
+    paymentPaise?: number;
     paymentMode?: PaymentMode;
     referenceId?: string;
     notes?: string;
   }) {
     const member = await this.memberRepo.findById(data.memberId);
-    if (!member) {
-      throw new Error('Member not found');
-    }
+    if (!member) throw new Error('Member not found');
 
     const plan = await this.planRepo.findById(data.planId);
-    if (!plan) {
-      throw new Error('Selected plan not found');
-    }
+    if (!plan) throw new Error('Selected plan not found');
 
     const currentActive = await this.membershipRepo.findActiveByMemberId(data.memberId);
+    const nowSec = Math.floor(Date.now() / 1000);
     let startTimestamp: number;
     if (data.startDate) {
-      startTimestamp = Math.floor(new Date(data.startDate).getTime() / 1000);
-    } else if (currentActive && currentActive.end_date > Math.floor(Date.now() / 1000)) {
+      startTimestamp = data.startDate;
+    } else if (currentActive && currentActive.end_date > nowSec) {
       startTimestamp = currentActive.end_date;
     } else {
-      startTimestamp = Math.floor(Date.now() / 1000);
+      startTimestamp = nowSec;
     }
 
     const endTimestamp = calculateMembershipEndDate(startTimestamp, plan.duration_months);
-    const { totalAmount, discountAmount, finalAmount, paidAmount, dueAmount } = calculateMembershipFinancials({
-      planPrice: plan.price,
+    const fin = calculateMembershipFinancials({
+      planPrice: plan.price_paise,
       admissionFee: 0,
-      discountAmount: (data.discountAmount || 0) * 100,
-      initialPaymentAmount: (data.paymentAmount || 0) * 100,
+      discountAmount: data.discountPaise ?? 0,
+      initialPaymentAmount: data.paymentPaise ?? 0,
     });
 
-    const membershipId = `ms_${crypto.randomUUID().slice(0, 8)}`;
-
-    await this.membershipRepo.create({
-      id: membershipId,
+    const membershipId = await this.membershipRepo.create({
       member_id: data.memberId,
       membership_plan_id: plan.id,
       start_date: startTimestamp,
       end_date: endTimestamp,
-      total_amount: totalAmount,
-      discount_amount: discountAmount,
-      final_amount: finalAmount,
-      paid_amount: paidAmount,
-      due_amount: dueAmount,
-      notes: data.notes || 'Renewal',
+      total_amount_paise: fin.totalAmount,
+      discount_paise: fin.discountAmount,
+      final_amount_paise: fin.finalAmount,
+      paid_amount_paise: fin.paidAmount,
+      due_amount_paise: fin.dueAmount,
+      notes: data.notes ?? 'Renewal',
+      created_by_user_id: this.userId,
     });
 
     let receiptNumber: string | undefined;
-    if (paidAmount > 0) {
-      const paymentId = `pay_${crypto.randomUUID().slice(0, 8)}`;
+    if (fin.paidAmount > 0) {
       receiptNumber = await this.paymentRepo.getNextReceiptNumber();
-
       await this.paymentRepo.record({
-        id: paymentId,
         member_id: data.memberId,
         membership_id: membershipId,
         receipt_number: receiptNumber,
-        amount: paidAmount,
-        payment_date: Math.floor(Date.now() / 1000),
-        payment_mode: data.paymentMode || 'CASH',
-        reference_id: data.referenceId || null,
+        amount_paise: fin.paidAmount,
+        payment_date: nowSec,
+        payment_mode: data.paymentMode ?? 'CASH',
+        reference_id: data.referenceId ?? null,
         recorded_by_user_id: this.userId,
         notes: `Renewal payment for ${plan.name}`,
+        payment_type: 'GYM',
       });
     }
 
     const notif = new NotificationService(this.gymName);
     const whatsappUrl = notif.generateWhatsAppUrl({
       recipientPhone: member.phone,
-      recipientName: `${member.first_name} ${member.last_name || ''}`.trim(),
+      recipientName: `${member.first_name} ${member.last_name ?? ''}`.trim(),
       type: 'RENEWAL_CONFIRMATION',
       params: {
         newExpiryDate: new Date(endTimestamp * 1000).toLocaleDateString('en-IN'),
       },
     });
 
-    return {
-      membershipId,
-      receiptNumber,
-      whatsappUrl,
-    };
+    await this.audit.recordGymEvent({
+      gymId: this.gymId,
+      actorUserId: this.userId,
+      actorRole: 'STAFF',
+      action: 'member.renew',
+      entityType: 'membership',
+      entityId: membershipId,
+      afterState: { planId: plan.id, fin },
+    });
+
+    return { membershipId, receiptNumber, whatsappUrl };
   }
 
-  async getMemberDetails(memberId: string) {
+  async getMemberDetails(memberId: number) {
     const member = await this.memberRepo.findById(memberId);
-    if (!member) {
-      throw new Error('Member not found');
-    }
+    if (!member) throw new Error('Member not found');
 
     const [memberships, payments, attendance] = await Promise.all([
       this.membershipRepo.findByMemberId(memberId),
       this.paymentRepo.list({ memberId, limit: 20 }),
       this.attendanceRepo.listByMember(memberId, 30),
     ]);
-
     const activeMembership = memberships.find((m) => m.status === 'ACTIVE') || null;
-
-    return {
-      member,
-      activeMembership,
-      memberships,
-      payments,
-      attendance,
-    };
+    return { member, activeMembership, memberships, payments, attendance };
   }
 }

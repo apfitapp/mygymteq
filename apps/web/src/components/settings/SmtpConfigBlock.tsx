@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Server, Shield, Send, CheckCircle2, AlertCircle, Eye, EyeOff, Sparkles, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Mail, Server, Shield, Send, CheckCircle2, AlertCircle, Eye, EyeOff, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,6 +15,7 @@ interface SmtpConfigBlockProps {
   onChange: (updated: SmtpSettings) => void;
   userEmail?: string;
   gymName?: string;
+  onTest?: (payload: { smtp: SmtpSettings; testRecipient: string }) => Promise<{ success: boolean; message: string }>;
 }
 
 const PROVIDERS: {
@@ -118,6 +119,7 @@ export const SmtpConfigBlock: React.FC<SmtpConfigBlockProps> = ({
   onChange,
   userEmail,
   gymName,
+  onTest,
 }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(smtp.provider === 'CUSTOM');
@@ -151,7 +153,8 @@ export const SmtpConfigBlock: React.FC<SmtpConfigBlockProps> = ({
     setTestResult(null);
 
     try {
-      const res = await api.testSmtp({
+      const testFn = onTest || ((p: any) => api.testAdminSmtp(p));
+      const res = await testFn({
         smtp,
         testRecipient: testRecipient.trim(),
       });

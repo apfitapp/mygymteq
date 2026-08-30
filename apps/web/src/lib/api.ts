@@ -15,7 +15,6 @@ import {
   CheckInResponse,
   CreateStaffRequest,
   CreateGymRequest,
-  ToggleGymStatusRequest,
   DashboardMetrics,
   GymMembershipPlan,
   User,
@@ -31,13 +30,14 @@ import {
   FreezeMemberResponse,
   RecordPtCollectionRequest,
   RecordPtCollectionResponse,
-  PtCollection,
+  PtCollectionRow,
   PtSummary,
   InvoiceData,
   NotificationSettingsRequest,
   NotificationSettingsResponse,
   TestSmtpRequest,
-  SmtpSettings,
+  PlatformCommunicationsConfig,
+  SendNotificationRequest,
 } from '@gymtech/shared';
 
 const API_BASE_URL =
@@ -158,32 +158,32 @@ class ApiClient {
     });
   }
 
-  async getMemberDetail(id: string): Promise<MemberDetailResponse> {
+  async getMemberDetail(id: number): Promise<MemberDetailResponse> {
     return this.request<MemberDetailResponse>(`/api/members/${id}`);
   }
 
-  async updateMember(id: string, payload: UpdateMemberRequest): Promise<Member> {
+  async updateMember(id: number, payload: UpdateMemberRequest): Promise<Member> {
     return this.request<Member>(`/api/members/${id}`, {
       method: 'PUT',
       body: JSON.stringify(payload),
     });
   }
 
-  async renewMembership(id: string, payload: RenewMembershipRequest): Promise<RenewMembershipResponse> {
+  async renewMembership(id: number, payload: RenewMembershipRequest): Promise<RenewMembershipResponse> {
     return this.request<RenewMembershipResponse>(`/api/members/${id}/renew`, {
       method: 'POST',
       body: JSON.stringify(payload),
     });
   }
 
-  async freezeMember(id: string, reason?: string): Promise<FreezeMemberResponse> {
+  async freezeMember(id: number, reason?: string): Promise<FreezeMemberResponse> {
     return this.request<FreezeMemberResponse>(`/api/members/${id}/freeze`, {
       method: 'POST',
       body: JSON.stringify({ reason }),
     });
   }
 
-  async unfreezeMember(id: string): Promise<FreezeMemberResponse> {
+  async unfreezeMember(id: number): Promise<FreezeMemberResponse> {
     return this.request<FreezeMemberResponse>(`/api/members/${id}/unfreeze`, {
       method: 'POST',
       body: JSON.stringify({}),
@@ -256,8 +256,10 @@ class ApiClient {
     });
   }
 
-  async testSmtp(payload: TestSmtpRequest): Promise<{ success: boolean; message: string }> {
-    return this.request<{ success: boolean; message: string }>('/api/settings/smtp/test', {
+  async dispatchNotification(
+    payload: SendNotificationRequest
+  ): Promise<{ success: boolean; channel: string; remainingCredits: number; message: string; whatsappUrl?: string }> {
+    return this.request('/api/notifications/dispatch', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
@@ -274,7 +276,7 @@ class ApiClient {
     return this.request(`/api/reports?period=${period}`);
   }
 
-  async getInvoice(paymentId: string): Promise<InvoiceData> {
+  async getInvoice(paymentId: number): Promise<InvoiceData> {
     return this.request<InvoiceData>(`/api/payments/${paymentId}/invoice`);
   }
 
@@ -299,11 +301,11 @@ class ApiClient {
   }
 
   // PT Collections
-  async getPtCollections(params?: { trainerId?: string }): Promise<{ collections: PtCollection[] }> {
+  async getPtCollections(params?: { trainerId?: number }): Promise<{ collections: PtCollectionRow[] }> {
     const q = new URLSearchParams();
-    if (params?.trainerId) q.set('trainerId', params.trainerId);
+    if (params?.trainerId) q.set('trainerId', String(params.trainerId));
     const qs = q.toString();
-    return this.request<{ collections: PtCollection[] }>(`/api/pt/collections${qs ? `?${qs}` : ''}`);
+    return this.request<{ collections: PtCollectionRow[] }>(`/api/pt/collections${qs ? `?${qs}` : ''}`);
   }
 
   async getPtSummary(): Promise<PtSummary> {
@@ -317,7 +319,7 @@ class ApiClient {
     });
   }
 
-  async settlePtCommission(id: string, status: 'PAID' | 'PENDING'): Promise<{ success: boolean }> {
+  async settlePtCommission(id: number, status: 'PAID' | 'PENDING'): Promise<{ success: boolean }> {
     return this.request<{ success: boolean }>(`/api/pt/collections/${id}/settle`, {
       method: 'POST',
       body: JSON.stringify({ status }),
@@ -329,26 +331,139 @@ class ApiClient {
     return this.request<{ gyms: any[] }>('/api/admin/gyms');
   }
 
-  async getAdminPlans(): Promise<{ plans: any[] }> {
-    return this.request<{ plans: any[] }>('/api/admin/plans');
+  async getAdminLicenses(): Promise<{ licenses: any[] }> {
+    return this.request<{ licenses: any[] }>('/api/admin/licenses');
   }
 
   async getAdminMetrics(): Promise<{ totalGyms: number; activeGyms: number; totalMembers: number; platformRevenue: number }> {
     return this.request<{ totalGyms: number; activeGyms: number; totalMembers: number; platformRevenue: number }>('/api/admin/metrics');
   }
 
-  async createGym(payload: CreateGymRequest): Promise<{ gymId: string; userId: string }> {
-    return this.request<{ gymId: string; userId: string }>('/api/admin/gyms', {
+  async createGym(payload: CreateGymRequest): Promise<{ gymId: number; userId: number }> {
+    return this.request<{ gymId: number; userId: number }>('/api/admin/gyms', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
   }
 
-  async toggleGymStatus(gymId: string, status: 'ACTIVE' | 'SUSPENDED'): Promise<{ success: boolean; status: string }> {
+  async toggleGymStatus(gymId: number, status: 'ACTIVE' | 'SUSPENDED' | 'CANCELLED'): Promise<{ success: boolean; status: string }> {
     return this.request<{ success: boolean; status: string }>(`/api/admin/gyms/${gymId}/status`, {
       method: 'POST',
       body: JSON.stringify({ gymId, status }),
     });
+  }
+
+  // Super Admin Communications & Gateways
+  async getAdminCommunications(): Promise<{ config: PlatformCommunicationsConfig }> {
+    return this.request<{ config: PlatformCommunicationsConfig }>('/api/admin/communications');
+  }
+
+  async updateAdminCommunications(config: PlatformCommunicationsConfig): Promise<{ success: boolean; config: PlatformCommunicationsConfig }> {
+    return this.request<{ success: boolean; config: PlatformCommunicationsConfig }>('/api/admin/communications', {
+      method: 'PUT',
+      body: JSON.stringify(config),
+    });
+  }
+
+  async testAdminSmtp(payload: TestSmtpRequest): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>('/api/admin/communications/test-smtp', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async topUpGymCredits(gymId: number, payload: { channel: 'sms' | 'whatsapp' | 'email'; credits: number }): Promise<{ success: boolean; license: any }> {
+    return this.request<{ success: boolean; license: any }>(`/api/admin/gyms/${gymId}/top-up-credits`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  // Soft Deletes & Lifecycle Archival
+  async archiveMember(id: number): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/api/members/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async restoreMember(id: number): Promise<{ success: boolean; member: any; message: string }> {
+    return this.request<{ success: boolean; member: any; message: string }>(`/api/members/${id}/restore`, {
+      method: 'POST',
+    });
+  }
+
+  async archivePlan(id: number): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/api/plans/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async restorePlan(id: number): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/api/plans/${id}/restore`, {
+      method: 'POST',
+    });
+  }
+
+  async archiveStaff(id: number): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/api/staff/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async restoreStaff(id: number): Promise<{ success: boolean; message: string }> {
+    return this.request<{ success: boolean; message: string }>(`/api/staff/${id}/restore`, {
+      method: 'POST',
+    });
+  }
+
+  // Super Admin Fine-Grained Controls
+  async getGymFeatures(gymId: number): Promise<{ features: Record<string, boolean> }> {
+    return this.request<{ features: Record<string, boolean> }>(`/api/admin/gyms/${gymId}/features`);
+  }
+
+  async updateGymFeatures(gymId: number, features: Record<string, boolean>): Promise<{ success: boolean; features: Record<string, boolean> }> {
+    return this.request<{ success: boolean; features: Record<string, boolean> }>(`/api/admin/gyms/${gymId}/features`, {
+      method: 'PUT',
+      body: JSON.stringify({ features }),
+    });
+  }
+
+  async getGymUsers(gymId: number): Promise<{ users: any[] }> {
+    return this.request<{ users: any[] }>(`/api/admin/gyms/${gymId}/users`);
+  }
+
+  async updateAdminUser(userId: number, patch: any): Promise<{ success: boolean; user?: any; message?: string }> {
+    return this.request<{ success: boolean; user?: any; message?: string }>(`/api/admin/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(patch),
+    });
+  }
+
+  async updateLicenseLimits(gymId: number, patch: any): Promise<{ success: boolean; license?: any }> {
+    return this.request<{ success: boolean; license?: any }>(`/api/admin/gyms/${gymId}/license-limits`, {
+      method: 'PUT',
+      body: JSON.stringify(patch),
+    });
+  }
+
+  async getAdminAuditLogs(params?: { limit?: number; offset?: number; action?: string; affectedGymId?: number }): Promise<{ events: any[]; total: number }> {
+    const q = new URLSearchParams();
+    if (params?.limit) q.set('limit', String(params.limit));
+    if (params?.offset) q.set('offset', String(params.offset));
+    if (params?.action) q.set('action', params.action);
+    if (params?.affectedGymId) q.set('affectedGymId', String(params.affectedGymId));
+    const qs = q.toString();
+    return this.request<{ events: any[]; total: number }>(`/api/admin/audit-logs${qs ? `?${qs}` : ''}`);
+  }
+
+  async getGymAuditLogs(params?: { limit?: number; offset?: number; action?: string; entityType?: string }): Promise<{ events: any[]; total: number }> {
+    const q = new URLSearchParams();
+    if (params?.limit) q.set('limit', String(params.limit));
+    if (params?.offset) q.set('offset', String(params.offset));
+    if (params?.action) q.set('action', params.action);
+    if (params?.entityType) q.set('entityType', params.entityType);
+    const qs = q.toString();
+    return this.request<{ events: any[]; total: number }>(`/api/audit-logs${qs ? `?${qs}` : ''}`);
   }
 }
 

@@ -2,6 +2,7 @@ import React from 'react';
 import { Card } from './card';
 import { cn } from '@/lib/utils';
 import { AnimatedCounter } from '@/components/shared/AnimatedCounter';
+import { Sparkline, DeltaPill } from '@/components/shared/Sparkline';
 
 interface StatCardProps {
   title: string;
@@ -10,6 +11,10 @@ interface StatCardProps {
   icon?: React.ReactNode;
   variant?: 'default' | 'accent' | 'ok' | 'err';
   prefix?: string;
+  /** Optional sparkline series (oldest first). */
+  sparkline?: number[]
+  /** Optional period-over-period delta in % (e.g. 12 = +12%). */
+  delta?: number
 }
 
 const variantStyles: Record<NonNullable<StatCardProps['variant']>, { chip: string; ring: string }> = {
@@ -26,6 +31,8 @@ export const StatCard: React.FC<StatCardProps> = ({
   icon,
   variant = 'default',
   prefix,
+  sparkline,
+  delta,
 }) => {
   const styles = variantStyles[variant];
 
@@ -41,17 +48,31 @@ export const StatCard: React.FC<StatCardProps> = ({
           </div>
         )}
       </div>
-      <div className="mt-3 font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-        {typeof value === 'number' ? (
-          <AnimatedCounter value={value} prefix={prefix} />
-        ) : (
-          value
-        )}
+      <div className="mt-2 flex items-end justify-between gap-3">
+        <div className="font-display text-2xl font-bold tracking-tight text-foreground sm:text-3xl num-tabular">
+          {typeof value === 'number' ? (
+            <AnimatedCounter value={value} prefix={prefix} />
+          ) : (
+            value
+          )}
+        </div>
+        {delta !== undefined && <DeltaPill delta={delta} />}
       </div>
-      {subtitle && (
-        <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>
+      {(subtitle || sparkline) && (
+        <div className="mt-2 flex items-end justify-between gap-2">
+          {subtitle ? (
+            <p className="text-xs text-muted-foreground truncate flex-1">{subtitle}</p>
+          ) : <span />}
+          {sparkline && sparkline.length > 1 && (
+            <Sparkline
+              data={sparkline}
+              width={84}
+              height={22}
+              className="shrink-0"
+            />
+          )}
+        </div>
       )}
     </Card>
   );
 };
-

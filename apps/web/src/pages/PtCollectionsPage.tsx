@@ -43,7 +43,7 @@ export const PtCollectionsPage: React.FC = () => {
     sessions: '12',
     amount: '',
     commissionPercentage: '30',
-    paymentMode: 'UPI' as 'CASH' | 'UPI' | 'CARD' | 'NETBANKING' | 'OTHER',
+    paymentMode: 'UPI' as 'CASH' | 'UPI' | 'CARD' | 'BANK_TRANSFER' | 'OTHER',
     notes: '',
   });
 
@@ -75,16 +75,16 @@ export const PtCollectionsPage: React.FC = () => {
   const recordMutation = useMutation({
     mutationFn: () =>
       api.recordPtCollection({
-        memberId: form.memberId,
-        trainerId: form.trainerId,
+        memberId: parseInt(form.memberId, 10) || 0,
+        trainerId: parseInt(form.trainerId, 10) || 0,
         sessions: parseInt(form.sessions, 10) || 0,
-        amount: parseFloat(form.amount),
+        amountPaise: Math.round(parseFloat(form.amount || '0') * 100),
         commissionPercentage: parseFloat(form.commissionPercentage) || 0,
         paymentMode: form.paymentMode,
         notes: form.notes || undefined,
       }),
     onSuccess: (res) => {
-      toast('success', 'PT collection recorded', `Trainer commission: ${formatCurrency(res.commissionAmount)}`);
+      toast('success', 'PT collection recorded', `Trainer commission: ${formatCurrency(res.commissionPaise)}`);
       setIsRecordOpen(false);
       setForm({ memberId: '', trainerId: '', sessions: '12', amount: '', commissionPercentage: '30', paymentMode: 'UPI', notes: '' });
       queryClient.invalidateQueries({ queryKey: ['pt-collections'] });
@@ -96,7 +96,7 @@ export const PtCollectionsPage: React.FC = () => {
   });
 
   const settleMutation = useMutation({
-    mutationFn: ({ id, status }: { id: string; status: 'PAID' | 'PENDING' }) =>
+    mutationFn: ({ id, status }: { id: number; status: 'PAID' | 'PENDING' }) =>
       api.settlePtCommission(id, status),
     onSuccess: (_res, vars) => {
       toast('success', vars.status === 'PAID' ? 'Commission marked as paid' : 'Commission moved back to pending');
@@ -110,7 +110,7 @@ export const PtCollectionsPage: React.FC = () => {
 
   const collections = collectionsData?.collections || [];
   const canManage = user?.role === 'OWNER' || user?.role === 'MANAGER';
-  const formValid = form.memberId && form.trainerId && parseFloat(form.amount) > 0;
+  const formValid = form.memberId && form.trainerId && parseFloat(form.amount || '0') > 0;
 
   return (
     <AppShell title="PT Collections" breadcrumb="Billing">
@@ -249,10 +249,10 @@ export const PtCollectionsPage: React.FC = () => {
                     <TableCell className="text-xs">{c.trainer_name || '—'}</TableCell>
                     <TableCell className="text-right font-mono text-xs">{c.sessions}</TableCell>
                     <TableCell className="text-right font-mono text-xs font-semibold">
-                      {formatCurrency(c.amount)}
+                      {formatCurrency(c.amount_paise)}
                     </TableCell>
                     <TableCell className="text-right font-mono text-xs">
-                      {formatCurrency(c.commission_amount)}
+                      {formatCurrency(c.commission_paise)}
                       <span className="block text-[10px] text-muted-foreground">{c.commission_percentage}%</span>
                     </TableCell>
                     <TableCell>
@@ -380,7 +380,7 @@ export const PtCollectionsPage: React.FC = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {['CASH', 'UPI', 'CARD', 'NETBANKING', 'OTHER'].map((m) => (
+                    {['CASH', 'UPI', 'CARD', 'BANK_TRANSFER', 'OTHER'].map((m) => (
                       <SelectItem key={m} value={m}>
                         {m}
                       </SelectItem>
@@ -390,12 +390,12 @@ export const PtCollectionsPage: React.FC = () => {
               </div>
             </div>
 
-            {parseFloat(form.amount) > 0 && (
+            {parseFloat(form.amount || '0') > 0 && (
               <div className="rounded-sm border border-primary/25 bg-primary/5 px-3 py-2 text-xs text-foreground flex items-center gap-2">
                 <IndianRupee className="size-3.5 text-primary" />
                 Trainer commission:&nbsp;
                 <span className="font-mono font-bold">
-                  {formatCurrency(Math.round(parseFloat(form.amount) * 100 * ((parseFloat(form.commissionPercentage) || 0) / 100)))}
+                  {formatCurrency(Math.round(parseFloat(form.amount || '0') * 100 * ((parseFloat(form.commissionPercentage) || 0) / 100)))}
                 </span>
               </div>
             )}

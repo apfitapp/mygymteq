@@ -11,8 +11,8 @@ export function json(data: any, status = 200, headers: HeadersInit = {}): Respon
   });
 }
 
-export function errorResponse(message: string, status = 400): Response {
-  return json({ error: message }, status);
+export function errorResponse(message: string, status = 400, details?: any): Response {
+  return json({ error: message, ...(details ? (typeof details === 'object' ? details : { details }) : {}) }, status);
 }
 
 export function corsOptionsResponse(): Response {

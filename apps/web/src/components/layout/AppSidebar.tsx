@@ -1,12 +1,12 @@
 import React from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
   Users,
   CalendarCheck,
   Tag,
   CreditCard,
-  ShieldAlert,
   BarChart3,
   Settings,
   X,
@@ -14,12 +14,30 @@ import {
   Trophy,
   ChevronLeft,
   ChevronRight,
+  History,
+  UserCog,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { cn } from '@/lib/utils';
 import { Logo } from '@/components/shared/Logo';
+import { useRecentRoutes } from '@/hooks/useRecentRoutes';
+import type { UserRole } from '@gymtech/shared';
 
-type NavRole = 'OWNER' | 'MANAGER' | 'STAFF' | 'TRAINER' | 'SUPER_ADMIN' | 'MEMBER';
+type NavRole = 'OWNER' | 'MANAGER' | 'STAFF' | 'TRAINER' | 'PLATFORM_ADMIN';
 
 interface NavItem {
   key: string;
@@ -27,211 +45,307 @@ interface NavItem {
   href: string;
   icon: React.ComponentType<{ className?: string }>;
   roles: NavRole[];
+  shortcut?: string;
+  badge?: string;
+}
+
+interface NavGroup {
+  label?: string;
+  items: NavItem[];
 }
 
 interface AppSidebarProps {
-  isOpen: boolean;
-  onClose: () => void;
-  isCollapsed?: boolean;
-  onToggleCollapsed?: () => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
+  mobileOpen: boolean;
+  onCloseMobile: () => void;
 }
 
+const ALL: NavRole[] = ['OWNER', 'MANAGER', 'STAFF', 'TRAINER'];
+const STAFF: NavRole[] = ['OWNER', 'MANAGER', 'STAFF'];
+
+const navGroups: NavGroup[] = [
+  {
+    items: [
+      { key: 'dashboard', label: 'Dashboard', href: '#/dashboard', icon: LayoutDashboard, roles: ALL, shortcut: '1' },
+    ],
+  },
+  {
+    label: 'Operate',
+    items: [
+      { key: 'members', label: 'Members', href: '#/members', icon: Users, roles: ALL, shortcut: '2' },
+      { key: 'attendance', label: 'Floor', href: '#/attendance', icon: CalendarCheck, roles: ALL, shortcut: '3' },
+      { key: 'payments', label: 'Payments', href: '#/payments', icon: CreditCard, roles: STAFF, shortcut: '5' },
+      { key: 'pt', label: 'PT Collections', href: '#/pt-collections', icon: Trophy, roles: ['OWNER', 'MANAGER', 'TRAINER'] as NavRole[] },
+    ],
+  },
+  {
+    label: 'Configure',
+    items: [
+      { key: 'plans', label: 'Plans', href: '#/plans', icon: Tag, roles: ['OWNER', 'MANAGER'] as NavRole[] },
+      { key: 'staff', label: 'Staff', href: '#/staff', icon: UserCog, roles: ['OWNER'] as NavRole[] },
+      { key: 'reports', label: 'Reports', href: '#/reports', icon: BarChart3, roles: ['OWNER'] as NavRole[] },
+      { key: 'settings', label: 'Settings', href: '#/settings/notifications', icon: Settings, roles: ['OWNER'] as NavRole[] },
+      { key: 'settings', label: 'Audit Logs', href: '#/audit-logs', icon: History, roles: ['OWNER'] as NavRole[] },
+    ],
+  },
+];
+
 export const AppSidebar: React.FC<AppSidebarProps> = ({
-  isOpen,
-  onClose,
-  isCollapsed = false,
+  collapsed,
   onToggleCollapsed,
+  mobileOpen,
+  onCloseMobile,
 }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { gym, user, logout } = useAuth();
+  const { recent, clear: clearRecent } = useRecentRoutes();
 
-  const ALL: NavRole[] = ['OWNER', 'MANAGER', 'STAFF', 'TRAINER'];
-  const navGroups: { label: string; items: NavItem[] }[] = [
-    {
-      label: 'Overview',
-      items: [{ key: 'dashboard', label: 'Dashboard', href: '#/dashboard', icon: LayoutDashboard, roles: ALL }],
-    },
-    {
-      label: 'Members',
-      items: [
-        { key: 'members', label: 'Member Directory', href: '#/members', icon: Users, roles: ['OWNER', 'MANAGER', 'STAFF'] },
-        { key: 'attendance', label: 'Attendance Desk', href: '#/attendance', icon: CalendarCheck, roles: ALL },
-      ],
-    },
-    {
-      label: 'Billing',
-      items: [
-        { key: 'plans', label: 'Membership Plans', href: '#/plans', icon: Tag, roles: ['OWNER', 'MANAGER'] },
-        { key: 'payments', label: 'Payments & Dues', href: '#/payments', icon: CreditCard, roles: ['OWNER', 'MANAGER', 'STAFF'] },
-        { key: 'pt', label: 'PT Collections', href: '#/pt-collections', icon: Trophy, roles: ['OWNER', 'MANAGER', 'TRAINER'] },
-      ],
-    },
-    {
-      label: 'Operations',
-      items: [
-        { key: 'staff', label: 'Staff & Trainers', href: '#/staff', icon: ShieldAlert, roles: ['OWNER', 'MANAGER'] },
-        { key: 'reports', label: 'Reports & Insights', href: '#/reports', icon: BarChart3, roles: ['OWNER', 'MANAGER'] },
-      ],
-    },
-    {
-      label: 'System',
-      items: [
-        { key: 'settings', label: 'Settings', href: '#/settings/notifications', icon: Settings, roles: ['OWNER', 'MANAGER'] },
-      ],
-    },
-  ];
+  const isAllowed = (item: NavItem) => {
+    if (!user) return false;
+    if (user.role === 'PLATFORM_ADMIN') return false;
+    if (!item.roles.includes(user.role as UserRole as NavRole)) return false;
 
-  const role = (user?.role || 'STAFF') as NavRole;
-  const visibleGroups = navGroups
-    .map((group) => ({
-      ...group,
-      items: group.items.filter((item) => item.roles.includes(role)),
-    }))
-    .filter((group) => group.items.length > 0);
+    // Feature gating check: if gym has enabled_features specified, verify item is enabled
+    if (gym?.enabled_features && item.key) {
+      const featureKey = item.key === 'pt' ? 'pt_collections' : item.key;
+      if (!gym.enabled_features.includes(featureKey as any)) {
+        return false;
+      }
+    }
+    return true;
+  };
 
-  const currentPath = location.pathname;
+  const isActive = (href: string) => location.pathname === href.replace('#', '');
 
-  return (
-    <TooltipProvider delayDuration={150}>
-      {/* Mobile Drawer Backdrop */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs md:hidden"
-          onClick={onClose}
+  const renderItem = (item: NavItem, mode: 'rail' | 'drawer') => {
+    if (!isAllowed(item)) return null;
+    const active = isActive(item.href);
+    const content = (
+      <a
+        href={item.href}
+        className={cn(
+          'gt-nav-link',
+          mode === 'rail' ? 'justify-center' : '',
+          collapsed && mode === 'rail' ? 'px-0' : ''
+        )}
+        data-active={active}
+      >
+        <item.icon
+          className={cn(
+            'h-4 w-4 shrink-0',
+            active ? 'text-ink' : 'text-ink-3'
+          )}
         />
+        {(!collapsed || mode === 'drawer') && (
+          <span className="flex-1 truncate">{item.label}</span>
+        )}
+        {(!collapsed || mode === 'drawer') && item.shortcut && (
+          <kbd className="hidden lg:inline-block text-[10px] font-mono text-ink-3 bg-[var(--surface-2)] border border-[var(--line)] rounded px-1.5 h-[18px] leading-[16px]">
+            {item.shortcut}
+          </kbd>
+        )}
+        {(!collapsed || mode === 'drawer') && item.badge && (
+          <span className="gt-chip gt-chip-iron h-[18px] text-[10px]">{item.badge}</span>
+        )}
+      </a>
+    );
+
+    if (collapsed && mode === 'rail') {
+      return (
+        <TooltipProvider key={item.key} delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>{content}</TooltipTrigger>
+            <TooltipContent side="right" className="text-xs">
+              <p>{item.label}</p>
+              {item.shortcut && (
+                <p className="text-[10px] text-muted-foreground mt-0.5">⌘{item.shortcut}</p>
+              )}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      );
+    }
+    return <React.Fragment key={item.key}>{content}</React.Fragment>;
+  };
+
+  const renderGroup = (group: NavGroup, mode: 'rail' | 'drawer') => {
+    const visible = group.items.filter((i) => isAllowed(i));
+    if (visible.length === 0) return null;
+    return (
+      <div className="flex flex-col gap-0.5">
+        {group.label && (!collapsed || mode === 'drawer') && (
+          <div className="gt-nav-section">{group.label}</div>
+        )}
+        {visible.map((i) => renderItem(i, mode))}
+      </div>
+    );
+  };
+
+  const userInitial = (user?.name?.[0] || 'U').toUpperCase();
+  const fullName = user?.name || 'User';
+  const roleLabel = user?.role || '—';
+
+  const body = (
+    <div className="h-full flex flex-col">
+      {/* Brand */}
+      <div className={cn(
+        'h-16 flex items-center border-b border-[var(--line)] shrink-0',
+        collapsed ? 'justify-center px-1' : 'px-4 gap-2.5'
+      )}>
+        <a href="#/dashboard" className="flex items-center group/logo">
+          <Logo size="sm" showText={!collapsed || mobileOpen} />
+        </a>
+        {mobileOpen && (
+          <button
+            onClick={onCloseMobile}
+            className="ml-auto h-8 w-8 rounded-md text-ink-3 hover:bg-[var(--surface-2)] hover:text-ink flex items-center justify-center"
+            aria-label="Close menu"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      {/* Gym switcher (only when expanded) */}
+      {(!collapsed || mobileOpen) && gym && (
+        <div className="px-3 pt-3">
+          <div className="gt-card p-2.5 flex items-center gap-2.5">
+            <div className="h-7 w-7 rounded-md bg-[var(--surface-2)] text-ink-2 flex items-center justify-center text-xs font-semibold shrink-0">
+              {gym.name?.[0] || 'G'}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-ink truncate">{gym.name}</p>
+              <p className="text-[10px] text-ink-3 mt-0.5 flex items-center gap-1">
+                <span className="gt-dot gt-dot-positive h-1.5 w-1.5" /> Live
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
-      <aside
-        className={`fixed inset-y-0 left-0 z-50 flex flex-col border-r border-border bg-card transition-all duration-200 md:static ${
-          isCollapsed ? 'md:w-[var(--sidebar-collapsed-w)]' : 'md:w-[var(--sidebar-w)]'
-        } ${isOpen ? 'translate-x-0 w-[var(--sidebar-w)]' : '-translate-x-full md:translate-x-0'}`}
-      >
-        {/* Brand header */}
-        <div className={`flex h-[var(--header-h)] items-center justify-between border-b border-border ${isCollapsed ? 'px-3 justify-center' : 'px-4'}`}>
-          <a href="#/dashboard" className="flex items-center gap-2.5 min-w-0 group">
-            <Logo size="sm" showText={false} />
-            {!isCollapsed && (
-              <div className="min-w-0 flex-1">
-                <p className="font-display text-sm font-bold text-foreground truncate leading-tight">
-                  {gym?.name || 'GymTech'}
-                </p>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="inline-flex items-center gap-1 text-[10px] font-mono font-medium px-1.5 py-0.2 rounded-full bg-ok/10 text-ok border border-ok/20">
-                    <span className="size-1.5 rounded-full bg-ok shrink-0 animate-pulse" />
-                    Active Gym
-                  </span>
-                </div>
-              </div>
-            )}
-          </a>
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto px-3 py-4 flex flex-col gap-4">
+        {navGroups.map((g, i) => (
+          <React.Fragment key={i}>{renderGroup(g, mobileOpen ? 'drawer' : 'rail')}</React.Fragment>
+        ))}
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-md p-1.5 text-muted-foreground hover:text-foreground md:hidden"
-            aria-label="Close sidebar"
-          >
-            <X className="size-5" />
-          </button>
-        </div>
-
-        {/* Navigation links */}
-        <nav className="flex-1 overflow-y-auto px-2.5 py-4 flex flex-col gap-5">
-          {visibleGroups.map((group) => (
-            <div key={group.label} className="flex flex-col gap-1">
-              {!isCollapsed && (
-                <p className="px-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/75 font-mono">
-                  {group.label}
-                </p>
-              )}
-              <div className="flex flex-col gap-1">
-                {group.items.map((item) => {
-                  const itemPath = item.href.replace('#', '');
-                  const isActive = currentPath === itemPath || (itemPath !== '/dashboard' && currentPath.startsWith(itemPath));
-                  const Icon = item.icon;
-
-                  const linkEl = (
-                    <a
-                      key={item.key}
-                      href={item.href}
-                      onClick={() => onClose()}
-                      className={`relative flex items-center gap-3 px-2.5 py-2 rounded-lg text-xs font-medium transition-all select-none ${
-                        isCollapsed ? 'justify-center' : ''
-                      } ${
-                        isActive
-                          ? 'bg-primary/10 text-primary font-bold shadow-xs'
-                          : 'text-muted-foreground hover:text-foreground hover:bg-secondary/80'
-                      }`}
-                    >
-                      <Icon className={`size-4 shrink-0 ${isActive ? 'text-primary' : ''}`} />
-                      {!isCollapsed && <span className="truncate">{item.label}</span>}
-                      {isActive && !isCollapsed && (
-                        <span className="ml-auto size-1.5 rounded-full bg-primary" />
-                      )}
-                    </a>
-                  );
-
-                  if (isCollapsed) {
-                    return (
-                      <Tooltip key={item.key}>
-                        <TooltipTrigger asChild>
-                          {linkEl}
-                        </TooltipTrigger>
-                        <TooltipContent side="right" className="text-xs font-medium">
-                          {item.label}
-                        </TooltipContent>
-                      </Tooltip>
-                    );
-                  }
-
-                  return linkEl;
-                })}
-              </div>
+        {/* Recent routes */}
+        {(!collapsed || mobileOpen) && recent.length > 0 && (
+          <div className="flex flex-col gap-0.5 mt-2">
+            <div className="flex items-center justify-between gt-nav-section">
+              <span>Recent</span>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  clearRecent();
+                }}
+                className="text-[10px] font-normal text-ink-3 hover:text-ink normal-case tracking-normal"
+              >
+                Clear
+              </button>
             </div>
-          ))}
-        </nav>
-
-        {/* Collapse toggle (desktop only) */}
-        {onToggleCollapsed && (
-          <div className="hidden md:flex items-center justify-center p-2 border-t border-border/60">
-            <button
-              type="button"
-              onClick={onToggleCollapsed}
-              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            >
-              {isCollapsed ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
-            </button>
+            {recent.slice(0, 4).map((r) => (
+              <a
+                key={r.href}
+                href={r.href}
+                className="gt-nav-link text-xs"
+                data-active={isActive(r.href)}
+              >
+                <History className="h-3.5 w-3.5 text-ink-3 shrink-0" />
+                <span className="truncate">{r.label}</span>
+              </a>
+            ))}
           </div>
         )}
+      </nav>
 
-        {/* Sidebar footer with user info & logout */}
-        <div className="border-t border-border p-2.5 flex flex-col gap-2">
-          <div className={`flex items-center gap-2.5 p-2 rounded-lg bg-secondary/60 border border-border ${isCollapsed ? 'justify-center p-1.5' : ''}`}>
-            <div className="size-7 rounded-md bg-foreground text-background flex items-center justify-center text-xs font-mono font-bold shrink-0 shadow-xs">
-              {user?.name?.slice(0, 1) || 'U'}
-            </div>
-            {!isCollapsed && (
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-foreground truncate">{user?.name}</p>
-                <p className="text-[10px] text-muted-foreground font-mono capitalize">{user?.role?.toLowerCase()}</p>
-              </div>
+      {/* Footer user */}
+      <div className={cn('border-t border-[var(--line)] p-3 shrink-0', collapsed && !mobileOpen ? 'flex justify-center' : '')}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            {collapsed && !mobileOpen ? (
+              <button
+                className="h-9 w-9 rounded-full bg-[var(--surface-2)] text-ink-2 flex items-center justify-center text-xs font-semibold"
+                aria-label="Account menu"
+              >
+                {userInitial}
+              </button>
+            ) : (
+              <button className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-md hover:bg-[var(--surface-2)] transition-colors">
+                <div className="h-8 w-8 rounded-full bg-[var(--iron)] text-[var(--iron-ink)] flex items-center justify-center text-xs font-semibold shrink-0">
+                  {userInitial}
+                </div>
+                <div className="min-w-0 flex-1 text-left">
+                  <p className="text-xs font-semibold text-ink truncate">{fullName}</p>
+                  <p className="text-[10px] text-ink-3 mt-0.5 truncate">{roleLabel}</p>
+                </div>
+              </button>
             )}
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                logout();
-              }}
-              title="Sign Out"
-              className="p-1 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
-              aria-label="Log out"
-            >
-              <LogOut className="size-3.5" />
-            </button>
-          </div>
-        </div>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="right" className="w-56 text-xs">
+            <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-ink-3">
+              {fullName}
+            </DropdownMenuLabel>
+            <DropdownMenuItem onSelect={() => navigate('/settings/notifications')}>
+              <Settings className="h-3.5 w-3.5 mr-2" /> Settings
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => logout()} className="text-danger focus:text-danger">
+              <LogOut className="h-3.5 w-3.5 mr-2" /> Sign out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* Desktop rail */}
+      <aside
+        className={cn(
+          'hidden md:flex shrink-0 border-r border-[var(--line)] bg-[var(--surface)] relative z-10',
+          collapsed ? 'w-[60px]' : 'w-[224px]'
+        )}
+      >
+        {body}
+        <button
+          onClick={onToggleCollapsed}
+          className="absolute -right-3 top-16 h-6 w-6 rounded-full border border-[var(--line)] bg-[var(--surface)] text-ink-3 hover:text-ink flex items-center justify-center shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {collapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
+        </button>
       </aside>
-    </TooltipProvider>
+
+      {/* Mobile drawer */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <>
+            <motion.div
+              key="scrim"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+              className="md:hidden fixed inset-0 bg-black/40 z-40"
+              onClick={onCloseMobile}
+            />
+            <motion.aside
+              key="drawer"
+              initial={{ x: -240 }}
+              animate={{ x: 0 }}
+              exit={{ x: -240 }}
+              transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+              className="md:hidden fixed left-0 top-0 bottom-0 w-[260px] bg-[var(--surface)] z-50 border-r border-[var(--line)]"
+            >
+              {body}
+            </motion.aside>
+          </>
+        )}
+      </AnimatePresence>
+    </>
   );
 };

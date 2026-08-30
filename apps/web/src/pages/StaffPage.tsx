@@ -1,36 +1,19 @@
 import React, { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Users, ShieldAlert, UserCheck, AlertCircle } from 'lucide-react';
+import { Plus, AlertCircle } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
-import { PageContainer } from '@/components/shared/PageContainer';
-import { PageHeader } from '@/components/shared/PageHeader';
-import { StatusBadge } from '@/components/shared/StatusBadge';
-import { EmptyState } from '@/components/shared/EmptyState';
-import { TableSkeleton } from '@/components/shared/LoadingState';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
+import { cn } from '@/lib/utils';
 
 export const StaffPage: React.FC = () => {
   const { user } = useAuth();
@@ -58,7 +41,6 @@ export const StaffPage: React.FC = () => {
     e.preventDefault();
     setError(null);
     setIsSubmitting(true);
-
     try {
       await api.createStaff({
         name,
@@ -66,12 +48,13 @@ export const StaffPage: React.FC = () => {
         phone,
         role,
         password,
+        permissions: [],
       });
-
       setDialogOpen(false);
       setName('');
       setEmail('');
       setPhone('');
+      setPassword('');
       queryClient.invalidateQueries({ queryKey: ['staff'] });
     } catch (err: any) {
       setError(err.message || 'Failed to add staff member');
@@ -80,187 +63,182 @@ export const StaffPage: React.FC = () => {
     }
   };
 
+  const groups = {
+    OWNER: staff.filter((s: any) => s.role === 'OWNER'),
+    MANAGER: staff.filter((s: any) => s.role === 'MANAGER'),
+    STAFF: staff.filter((s: any) => s.role === 'STAFF'),
+    TRAINER: staff.filter((s: any) => s.role === 'TRAINER'),
+  };
+
   return (
-    <AppShell title="Staff & Trainers" breadcrumb="Operations">
-      <PageContainer>
-        <PageHeader
-          title="Team & Access Control"
-          description="Manage front desk personnel, fitness trainers, and role authorizations"
-          actions={
-            canManage && (
-              <Button
-                onClick={() => {
-                  setError(null);
-                  setDialogOpen(true);
-                }}
-                className="bg-primary text-primary-foreground font-bold text-xs h-9"
-              >
-                <Plus className="mr-1.5 size-4" /> Add Team Member
-              </Button>
-            )
-          }
-        />
-
-        <Card className="border-border shadow-xs overflow-hidden">
-          <CardHeader className="pb-3 border-b border-border flex flex-row items-center justify-between">
-            <CardTitle className="font-display text-base">Active Roster</CardTitle>
-            <span className="font-mono text-xs text-muted-foreground">
-              {staff.length} registered members
-            </span>
-          </CardHeader>
-          <CardContent className="p-0">
-            {isLoading ? (
-              <TableSkeleton rows={4} cols={5} />
-            ) : staff.length === 0 ? (
-              <EmptyState
-                icon={Users}
-                title="No staff members found"
-                description="Invite team members to help manage front desk or training."
-              />
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-surface-2 hover:bg-surface-2">
-                    <TableHead className="font-mono text-[10px] uppercase">Staff Member</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase">Role</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase">Contact</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase">Status</TableHead>
-                    <TableHead className="font-mono text-[10px] uppercase text-right">Joined</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {staff.map((s: any) => (
-                    <TableRow key={s.id} className="hover:bg-secondary/40">
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="size-8 rounded-lg bg-surface-2 border border-border flex items-center justify-center font-mono font-bold text-xs">
-                            {s.name?.[0] || 'S'}
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="font-semibold text-xs text-foreground">{s.name}</span>
-                            <span className="text-[10px] font-mono text-muted-foreground">{s.email}</span>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell><StatusBadge status={s.role} variant="role" /></TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">{s.phone || '—'}</TableCell>
-                      <TableCell>
-                        <span className="inline-flex px-1.5 py-0.5 rounded font-mono text-[10px] bg-ok/10 text-ok font-semibold">
-                          {s.status}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                        {new Date(s.created_at * 1000).toLocaleDateString('en-IN')}
-                      </TableCell>
-                    </TableRow>
+    <AppShell
+      title="Team"
+      description="Owners, managers, front-desk, trainers. One console, four roles."
+      actions={
+        canManage && (
+          <Button size="sm" className="gt-btn-primary" onClick={() => setDialogOpen(true)}>
+            <Plus className="h-3.5 w-3.5" /> Add member
+          </Button>
+        )
+      }
+    >
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="gt-skel h-20" />
+          ))}
+        </div>
+      ) : staff.length === 0 ? (
+        <div className="gt-empty py-16">
+          <p className="text-h2 text-ink">No teammates yet.</p>
+          <p className="text-meta max-w-md">
+            Invite your front desk, managers, and trainers — each gets a role and a sign-in.
+          </p>
+          {canManage && (
+            <Button className="gt-btn-primary mt-3" onClick={() => setDialogOpen(true)}>
+              <Plus className="h-3.5 w-3.5" /> Add first teammate
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-8">
+          {(['OWNER', 'MANAGER', 'TRAINER', 'STAFF'] as const).map((group) =>
+            groups[group].length > 0 ? (
+              <section key={group}>
+                <div className="flex items-baseline justify-between mb-3">
+                  <p className="text-eyebrow">{labelFor(group)}</p>
+                  <p className="text-[11px] text-ink-3 num">{groups[group].length}</p>
+                </div>
+                <ul className="flex flex-col gap-2">
+                  {groups[group].map((s: any) => (
+                    <li
+                      key={s.id}
+                      className="flex items-center gap-3 p-3 rounded-md border border-[var(--line)] bg-[var(--surface)] hover:border-[var(--ink-3)] transition-colors"
+                    >
+                      <div className="h-9 w-9 rounded-full bg-[var(--surface-2)] text-ink-2 flex items-center justify-center text-sm font-semibold shrink-0">
+                        {(s.name?.[0] || '·').toUpperCase()}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-ink truncate">{s.name}</p>
+                        <p className="text-[11px] text-ink-3 mt-0.5 truncate font-mono">
+                          {s.email} · {s.phone || '—'}
+                        </p>
+                      </div>
+                      <span
+                        className={cn(
+                          'gt-chip',
+                          s.status === 'ACTIVE' ? 'gt-chip-ok' : 'gt-chip-muted'
+                        )}
+                      >
+                        {s.status}
+                      </span>
+                    </li>
                   ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+                </ul>
+              </section>
+            ) : null
+          )}
+        </div>
+      )}
 
-      {/* Add Staff Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-display">Add Staff Member</DialogTitle>
-            <DialogDescription className="text-xs">
-              Assign role and credentials for gym console access
-            </DialogDescription>
+            <DialogTitle>Add teammate</DialogTitle>
           </DialogHeader>
 
           {error && (
-            <Alert variant="destructive">
-              <AlertCircle className="size-4" />
+            <Alert variant="destructive" className="mb-3">
+              <AlertCircle className="h-4 w-4" />
               <AlertDescription className="text-xs">{error}</AlertDescription>
             </Alert>
           )}
 
-          <form onSubmit={handleAddStaff} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="staffName" className="text-xs font-semibold">Full Name *</Label>
-              <Input
-                id="staffName"
+          <form onSubmit={handleAddStaff} className="flex flex-col gap-3">
+            <Field label="Full name *">
+              <input
                 required
                 placeholder="e.g. Ramesh Patel"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="text-xs"
+                className="gt-input"
               />
-            </div>
-
+            </Field>
             <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="staffEmail" className="text-xs font-semibold">Email *</Label>
-                <Input
-                  id="staffEmail"
+              <Field label="Email *">
+                <input
                   type="email"
                   required
                   placeholder="ramesh@gym.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="text-xs font-mono"
+                  className="gt-input font-mono"
                 />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="staffPhone" className="text-xs font-semibold">Phone *</Label>
-                <Input
-                  id="staffPhone"
+              </Field>
+              <Field label="Phone *">
+                <input
                   type="tel"
                   required
                   placeholder="9876543210"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="text-xs font-mono"
+                  className="gt-input font-mono"
                 />
-              </div>
+              </Field>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="staffRole" className="text-xs font-semibold">Role *</Label>
-                <Select value={role} onValueChange={(val: any) => setRole(val)}>
-                  <SelectTrigger id="staffRole" className="text-xs">
-                    <SelectValue placeholder="Select role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="STAFF">Front Desk / Staff</SelectItem>
-                    <SelectItem value="TRAINER">Fitness Trainer</SelectItem>
-                    <SelectItem value="MANAGER">Gym Manager</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="staffPassword" className="text-xs font-semibold">Initial Password *</Label>
-                <Input
-                  id="staffPassword"
+              <Field label="Role *">
+                <select
+                  value={role}
+                  onChange={(e) => setRole(e.target.value as any)}
+                  className="gt-input"
+                >
+                  <option value="STAFF">Front Desk</option>
+                  <option value="TRAINER">Trainer</option>
+                  <option value="MANAGER">Manager</option>
+                </select>
+              </Field>
+              <Field label="Temp password *">
+                <input
                   type="password"
                   required
-                  min={6}
+                  minLength={6}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="text-xs font-mono"
+                  className="gt-input"
                 />
-              </div>
+              </Field>
             </div>
 
             <DialogFooter className="mt-2">
-              <Button type="button" variant="ghost" onClick={() => setDialogOpen(false)} className="text-xs">
+              <Button type="button" variant="outline" size="sm" onClick={() => setDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="bg-primary text-primary-foreground font-bold text-xs"
-              >
-                {isSubmitting ? 'Creating...' : 'Create Account'}
+              <Button type="submit" size="sm" className="gt-btn-primary" disabled={isSubmitting}>
+                {isSubmitting ? 'Adding…' : 'Add teammate'}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
-      </PageContainer>
     </AppShell>
   );
 };
+
+function labelFor(role: string) {
+  switch (role) {
+    case 'OWNER': return 'Owners';
+    case 'MANAGER': return 'Managers';
+    case 'TRAINER': return 'Trainers';
+    case 'STAFF': return 'Front desk';
+    default: return role;
+  }
+}
+
+const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <div className="flex flex-col gap-1.5">
+    <label className="text-xs font-medium text-ink">{label}</label>
+    {children}
+  </div>
+);

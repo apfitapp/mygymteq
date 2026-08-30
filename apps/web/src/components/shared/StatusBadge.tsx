@@ -12,7 +12,7 @@ export type StatusVariant =
   | 'MANAGER'
   | 'STAFF'
   | 'TRAINER'
-  | 'SUPER_ADMIN';
+  | 'PLATFORM_ADMIN';
 
 interface StatusBadgeProps {
   status: string;
@@ -37,8 +37,8 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
     ? 'text-[10px] px-2 py-0.5 font-mono gap-1'
     : 'text-xs px-2.5 py-1 font-mono gap-1.5';
 
-  if (variant === 'role' || norm === 'OWNER' || norm === 'MANAGER' || norm === 'TRAINER' || norm === 'STAFF' || norm === 'SUPER_ADMIN') {
-    if (norm === 'OWNER' || norm === 'SUPER_ADMIN') {
+  if (variant === 'role' || norm === 'OWNER' || norm === 'MANAGER' || norm === 'TRAINER' || norm === 'STAFF' || norm === 'PLATFORM_ADMIN') {
+    if (norm === 'OWNER' || norm === 'PLATFORM_ADMIN') {
       return (
         <Badge
           variant="outline"

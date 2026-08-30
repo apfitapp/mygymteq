@@ -1,5 +1,5 @@
 import { SessionUser } from '@gymtech/shared';
-import { json, errorResponse, corsOptionsResponse } from '../lib/response';
+import { errorResponse, corsOptionsResponse } from '../lib/response';
 
 export interface Env {
   DB: D1Database;
@@ -16,7 +16,7 @@ export interface Env {
 export interface RequestContext {
   env: Env;
   user?: SessionUser;
-  gymId?: string;
+  gymId?: number;
   params: Record<string, string>;
   query: URLSearchParams;
   url: URL;

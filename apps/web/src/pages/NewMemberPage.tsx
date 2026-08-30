@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, CheckCircle2, MessageCircle, UserPlus, AlertCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, MessageCircle, AlertCircle } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,11 +12,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PhotoCaptureUpload } from '@/components/ui/PhotoCaptureUpload';
 import { api } from '@/lib/api';
 import { CreateMemberResponse } from '@gymtech/shared';
+import { extractSignatureFromUrl, serializeFaceSignature } from '@/lib/face-matcher';
 
 export const NewMemberPage: React.FC = () => {
   const { data: plansData, isLoading: plansLoading } = useQuery({
@@ -39,10 +40,10 @@ export const NewMemberPage: React.FC = () => {
   const [emergencyContactName, setEmergencyContactName] = useState('');
   const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
 
-  const [planId, setPlanId] = useState('');
+  const [planId, setPlanId] = useState<number | undefined>(undefined);
   const [discountAmount, setDiscountAmount] = useState<number>(0);
   const [initialPaymentAmount, setInitialPaymentAmount] = useState<number>(0);
-  const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI' | 'CARD' | 'NETBANKING'>('UPI');
+  const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI' | 'CARD' | 'BANK_TRANSFER' | 'OTHER'>('UPI');
   const [referenceId, setReferenceId] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,17 +52,18 @@ export const NewMemberPage: React.FC = () => {
 
   // Auto-set default plan when loaded
   React.useEffect(() => {
-    if (plans.length > 0 && !planId) {
+    if (plans.length > 0 && planId === undefined) {
       setPlanId(plans[0].id);
-      setInitialPaymentAmount(plans[0].price / 100);
+      setInitialPaymentAmount(plans[0].price_paise / 100);
     }
   }, [plans, planId]);
 
   const handlePlanChange = (selectedId: string) => {
-    setPlanId(selectedId);
-    const selectedPlan = plans.find((p) => p.id === selectedId);
+    const numericId = parseInt(selectedId, 10);
+    setPlanId(numericId);
+    const selectedPlan = plans.find((p) => p.id === numericId);
     if (selectedPlan) {
-      setInitialPaymentAmount(selectedPlan.price / 100);
+      setInitialPaymentAmount(selectedPlan.price_paise / 100);
     }
   };
 
@@ -71,6 +73,16 @@ export const NewMemberPage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
+      let faceEmbedding: string | undefined = undefined;
+      if (photoUrl) {
+        try {
+          const sig = await extractSignatureFromUrl(photoUrl);
+          if (sig) faceEmbedding = serializeFaceSignature(sig);
+        } catch (err) {
+          console.warn('Face embedding generation skipped:', err);
+        }
+      }
+
       const res = await api.createMember({
         firstName,
         lastName: lastName || undefined,
@@ -80,12 +92,13 @@ export const NewMemberPage: React.FC = () => {
         dateOfBirth: dateOfBirth || undefined,
         joinedDate,
         photoUrl: photoUrl || undefined,
+        faceEmbedding,
         address: address || undefined,
         emergencyContactName: emergencyContactName || undefined,
         emergencyContactPhone: emergencyContactPhone || undefined,
-        planId,
-        discountAmount: Number(discountAmount) || 0,
-        initialPaymentAmount: Number(initialPaymentAmount) || 0,
+        planId: planId!,
+        discountPaise: Math.round((Number(discountAmount) || 0) * 100),
+        initialPaymentPaise: Math.round((Number(initialPaymentAmount) || 0) * 100),
         paymentMode,
         referenceId: referenceId || undefined,
       });
@@ -279,14 +292,14 @@ export const NewMemberPage: React.FC = () => {
               <CardContent className="pt-4 flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="planId" className="text-xs font-semibold">Select Membership Package *</Label>
-                  <Select value={planId} onValueChange={handlePlanChange}>
+                  <Select value={planId?.toString() ?? ''} onValueChange={handlePlanChange}>
                     <SelectTrigger id="planId" className="text-xs">
                       <SelectValue placeholder={plansLoading ? 'Loading plans...' : 'Choose package'} />
                     </SelectTrigger>
                     <SelectContent>
                       {plans.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name} ({p.duration_months} mo) — ₹{(p.price / 100).toLocaleString('en-IN')}
+                        <SelectItem key={p.id} value={p.id.toString()}>
+                          {p.name} ({p.duration_months} mo) — ₹{(p.price_paise / 100).toLocaleString('en-IN')}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -332,7 +345,7 @@ export const NewMemberPage: React.FC = () => {
                         <SelectItem value="UPI">UPI / QR Code</SelectItem>
                         <SelectItem value="CASH">Cash</SelectItem>
                         <SelectItem value="CARD">Debit / Credit Card</SelectItem>
-                        <SelectItem value="NETBANKING">Net Banking</SelectItem>
+                        <SelectItem value="BANK_TRANSFER">Net Banking</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

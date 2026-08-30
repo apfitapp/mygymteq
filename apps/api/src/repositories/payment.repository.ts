@@ -1,17 +1,9 @@
-import { Payment, PaymentMode } from '@gymtech/shared';
-
-export interface PaymentWithDetails extends Payment {
-  first_name: string;
-  last_name: string | null;
-  member_code: string;
-  phone: string;
-  recorded_by_name?: string | null;
-}
+import type { Payment, PaymentMode, PaymentWithDetails } from '@gymtech/shared';
 
 export class PaymentRepository {
-  constructor(private db: D1Database, private gymId: string) {}
+  constructor(private db: D1Database, private gymId: number) {}
 
-  async list(params: { limit?: number; offset?: number; memberId?: string }): Promise<PaymentWithDetails[]> {
+  async list(params: { limit?: number; offset?: number; memberId?: number }): Promise<PaymentWithDetails[]> {
     let query = `
       SELECT p.*, m.first_name, m.last_name, m.member_code, m.phone, u.name as recorded_by_name
       FROM payments p
@@ -44,61 +36,72 @@ export class PaymentRepository {
   }
 
   async record(data: {
-    id: string;
-    member_id: string;
-    membership_id?: string | null;
+    member_id: number;
+    membership_id?: number | null;
     receipt_number: string;
-    amount: number;
+    amount_paise: number;
     payment_date: number;
     payment_mode: PaymentMode;
     reference_id?: string | null;
-    recorded_by_user_id: string;
+    recorded_by_user_id: number;
     notes?: string | null;
-  }): Promise<void> {
-    await this.db
-      .prepare(`
-        INSERT INTO payments (
-          id, gym_id, member_id, membership_id, receipt_number,
-          amount, payment_date, payment_mode, reference_id,
+    payment_type?: 'GYM' | 'PERSONAL_TRAINING';
+  }): Promise<number> {
+    const now = Math.floor(Date.now() / 1000);
+    const res = await this.db
+      .prepare(
+        `INSERT INTO payments (
+          gym_id, member_id, membership_id, payment_type, receipt_number,
+          amount_paise, payment_date, payment_mode, reference_id,
           status, recorded_by_user_id, notes, created_at, updated_at
-        ) VALUES (
-          ?, ?, ?, ?, ?,
-          ?, ?, ?, ?,
-          'COMPLETED', ?, ?, unixepoch(), unixepoch()
-        )
-      `)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'COMPLETED', ?, ?, ?, ?)`
+      )
       .bind(
-        data.id,
         this.gymId,
         data.member_id,
-        data.membership_id || null,
+        data.membership_id ?? null,
+        data.payment_type ?? 'GYM',
         data.receipt_number,
-        data.amount,
+        data.amount_paise,
         data.payment_date,
         data.payment_mode,
-        data.reference_id || null,
+        data.reference_id ?? null,
         data.recorded_by_user_id,
-        data.notes || null
+        data.notes ?? null,
+        now,
+        now
       )
       .run();
+    return Number(res.meta?.last_row_id ?? res.meta?.lastInsertRowid ?? 0);
   }
 
   async getSummaryMetrics(): Promise<{ monthlyRevenue: number; todayRevenue: number; pendingDues: number }> {
-    const startOfMonth = Math.floor(new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime() / 1000);
+    const startOfMonth = Math.floor(
+      new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime() / 1000
+    );
     const startOfToday = Math.floor(new Date(new Date().setHours(0, 0, 0, 0)).getTime() / 1000);
 
     const monthRes = await this.db
-      .prepare(`SELECT SUM(amount) as revenue FROM payments WHERE gym_id = ? AND status = 'COMPLETED' AND payment_date >= ?`)
+      .prepare(
+        `SELECT SUM(amount_paise) as revenue FROM payments
+         WHERE gym_id = ? AND status = 'COMPLETED' AND payment_date >= ?`
+      )
       .bind(this.gymId, startOfMonth)
       .first<{ revenue: number | null }>();
 
     const todayRes = await this.db
-      .prepare(`SELECT SUM(amount) as revenue FROM payments WHERE gym_id = ? AND status = 'COMPLETED' AND payment_date >= ?`)
+      .prepare(
+        `SELECT SUM(amount_paise) as revenue FROM payments
+         WHERE gym_id = ? AND status = 'COMPLETED' AND payment_date >= ?`
+      )
       .bind(this.gymId, startOfToday)
       .first<{ revenue: number | null }>();
 
     const duesRes = await this.db
-      .prepare(`SELECT SUM(due_amount) as total_dues FROM memberships WHERE gym_id = ? AND status = 'ACTIVE' AND due_amount > 0`)
+      .prepare(
+        `SELECT SUM(due_amount_paise) as total_dues FROM memberships
+         WHERE gym_id = ? AND status = 'ACTIVE' AND due_amount_paise > 0`
+      )
       .bind(this.gymId)
       .first<{ total_dues: number | null }>();
 

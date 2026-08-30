@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogOut, User as UserIcon, Shield } from 'lucide-react';
+import { LogOut, Shield } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import {
   DropdownMenu,
@@ -41,7 +41,7 @@ export const UserMenu: React.FC = () => {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {user?.role === 'SUPER_ADMIN' && (
+        {user?.role === 'PLATFORM_ADMIN' && (
           <DropdownMenuItem asChild className="rounded-xs cursor-pointer">
             <a href="#/admin" className="flex items-center gap-2">
               <Shield className="size-4 text-muted-foreground" />

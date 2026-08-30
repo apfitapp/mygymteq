@@ -1,32 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { MessageSquare, MessageCircle, Mail, Smartphone, CheckCircle2 } from 'lucide-react';
+import { MessageCircle, Mail, AlertCircle, Save, Smartphone, ShieldCheck } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { SmtpConfigBlock } from '@/components/settings/SmtpConfigBlock';
-import { SmtpSettings } from '@gymtech/shared';
-import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
-
-const DEFAULT_SMTP: SmtpSettings = {
-  enabled: false,
-  provider: 'CUSTOM',
-  host: '',
-  port: 587,
-  secure: false,
-  username: '',
-  password: '',
-  fromName: '',
-  fromEmail: '',
-};
+import { useToast } from '@/components/ui/toast';
+import { useAuth } from '@/lib/auth';
+import { cn } from '@/lib/utils';
 
 export const SettingsNotificationsPage: React.FC = () => {
-  const { gym, user } = useAuth();
-
-  const { data } = useQuery({
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const { data, refetch } = useQuery({
     queryKey: ['notification-settings'],
     queryFn: () => api.getNotificationSettings(),
   });
@@ -35,8 +22,6 @@ export const SettingsNotificationsPage: React.FC = () => {
   const [welcomeEnabled, setWelcomeEnabled] = useState(true);
   const [receiptEnabled, setReceiptEnabled] = useState(true);
   const [expiryEnabled, setExpiryEnabled] = useState(true);
-  const [smtp, setSmtp] = useState<SmtpSettings>(DEFAULT_SMTP);
-  const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     if (!data) return;
@@ -44,9 +29,6 @@ export const SettingsNotificationsPage: React.FC = () => {
     setWelcomeEnabled(data.welcomeEnabled);
     setReceiptEnabled(data.receiptEnabled);
     setExpiryEnabled(data.expiryEnabled);
-    if (data.smtp) {
-      setSmtp(data.smtp);
-    }
   }, [data]);
 
   const saveMutation = useMutation({
@@ -56,209 +38,314 @@ export const SettingsNotificationsPage: React.FC = () => {
         welcomeEnabled,
         receiptEnabled,
         expiryEnabled,
-        smtp,
       }),
     onSuccess: () => {
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      toast('success', 'Saved', 'Notification trigger settings updated.');
+      refetch();
     },
+    onError: (e: any) => toast('error', 'Save failed', e.message),
   });
 
-  const handleSave = () => saveMutation.mutate();
+  const smsBal = data?.smsBalance || { total: 0, used: 0, remaining: 0 };
+  const waBal = data?.whatsappBalance || { total: 0, used: 0, remaining: 0 };
+  const smsPercent = smsBal.total > 0 ? Math.min(100, Math.round((smsBal.used / smsBal.total) * 100)) : 0;
+  const waPercent = waBal.total > 0 ? Math.min(100, Math.round((waBal.used / waBal.total) * 100)) : 0;
 
   return (
-    <AppShell title="Notification Settings" breadcrumb="System">
-      <div className="max-w-2xl mx-auto w-full flex flex-col gap-6">
-        <div>
-          <h2 className="font-display text-2xl font-bold tracking-tight text-foreground">
-            Notification &amp; WhatsApp Settings
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            Configure automated customer alerts and pre-filled WhatsApp templates
-          </p>
+    <AppShell
+      title="Notifications & Message Balances"
+      description="Automate member alerts, renewal reminders, and track your live SMS & WhatsApp message balances."
+      actions={
+        <Button
+          size="sm"
+          className="gt-btn-primary"
+          onClick={() => saveMutation.mutate()}
+          disabled={saveMutation.isPending}
+        >
+          <Save className="h-3.5 w-3.5" />
+          {saveMutation.isPending ? 'Saving…' : 'Save changes'}
+        </Button>
+      }
+    >
+      {saveMutation.isError && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="text-xs">
+            {(saveMutation.error as Error)?.message || 'Save failed.'}
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-10 gap-y-10">
+        <div className="lg:col-span-2 flex flex-col gap-10 min-w-0">
+
+          {/* Section 1: Message Credits & Balances */}
+          <section>
+            <SectionHeader
+              eyebrow="Message Balances"
+              title="SMS & WhatsApp Quotas"
+              subtitle="Message credits are managed by the platform. Sending an automated or manual alert decrements your balance."
+            />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+              {/* SMS Balance Card */}
+              <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4 flex flex-col justify-between shadow-xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                      <Smartphone className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-ink">SMS Balance</p>
+                      <p className="text-[11px] text-ink-3">Carrier standard SMS</p>
+                    </div>
+                  </div>
+                  <span className={cn(
+                    "text-xs font-mono font-bold px-2 py-0.5 rounded-md",
+                    smsBal.remaining > 50 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
+                    smsBal.remaining > 0 ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" :
+                    "bg-red-500/10 text-red-600 dark:text-red-400"
+                  )}>
+                    {smsBal.remaining} Left
+                  </span>
+                </div>
+
+                <div className="mt-4">
+                  <div className="flex justify-between text-[11px] text-ink-3 font-mono mb-1">
+                    <span>{smsBal.used} used</span>
+                    <span>{smsBal.total} total quota</span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-[var(--surface-2)] overflow-hidden">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all duration-300",
+                        smsPercent > 90 ? "bg-red-500" : smsPercent > 75 ? "bg-amber-500" : "bg-blue-500"
+                      )}
+                      style={{ width: `${smsPercent}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* WhatsApp Balance Card */}
+              <div className="rounded-xl border border-[var(--line)] bg-[var(--surface)] p-4 flex flex-col justify-between shadow-xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-8 w-8 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                      <MessageCircle className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold text-ink">WhatsApp Balance</p>
+                      <p className="text-[11px] text-ink-3">Interactive rich alerts</p>
+                    </div>
+                  </div>
+                  <span className={cn(
+                    "text-xs font-mono font-bold px-2 py-0.5 rounded-md",
+                    waBal.remaining > 50 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" :
+                    waBal.remaining > 0 ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" :
+                    "bg-red-500/10 text-red-600 dark:text-red-400"
+                  )}>
+                    {waBal.remaining} Left
+                  </span>
+                </div>
+
+                <div className="mt-4">
+                  <div className="flex justify-between text-[11px] text-ink-3 font-mono mb-1">
+                    <span>{waBal.used} used</span>
+                    <span>{waBal.total} total quota</span>
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-[var(--surface-2)] overflow-hidden">
+                    <div
+                      className={cn(
+                        "h-full rounded-full transition-all duration-300",
+                        waPercent > 90 ? "bg-red-500" : waPercent > 75 ? "bg-amber-500" : "bg-emerald-500"
+                      )}
+                      style={{ width: `${waPercent}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-3 p-3 rounded-lg bg-primary/5 border border-primary/20 flex items-start gap-2.5">
+              <ShieldCheck className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+              <p className="text-xs text-ink-2 leading-relaxed">
+                <strong>Platform-Managed Gateways:</strong> SMTP mail servers, SMS telco gateways, and WhatsApp Business APIs are securely managed by your GymTech Platform Super Admin. To top up message credits or adjust delivery channels, contact platform administration.
+              </p>
+            </div>
+          </section>
+
+          {/* Section 2: Delivery Channels */}
+          <section>
+            <SectionHeader eyebrow="Channels" title="Delivery Status" />
+            <ul className="flex flex-col">
+              <ChannelRow
+                icon={<MessageCircle className="h-4 w-4" />}
+                name="WhatsApp Messaging"
+                desc="Direct member nudges with pre-formatted receipts and digital member pass links."
+                on={data?.whatsappServiceStatus === 'ACTIVE' ? (
+                  <span className="gt-chip gt-chip-ok">Active Relay</span>
+                ) : (
+                  <span className="gt-chip gt-chip-muted">Super Admin Configured</span>
+                )}
+                locked
+              />
+              <ChannelRow
+                icon={<Smartphone className="h-4 w-4" />}
+                name="SMS Dispatch"
+                desc="High-priority instant SMS text messages delivered straight to mobile numbers."
+                on={data?.smsServiceStatus === 'ACTIVE' ? (
+                  <span className="gt-chip gt-chip-ok">Active Relay</span>
+                ) : (
+                  <span className="gt-chip gt-chip-muted">Super Admin Configured</span>
+                )}
+              />
+              <ChannelRow
+                icon={<Mail className="h-4 w-4" />}
+                name="Automated Email"
+                desc="Formal GST tax invoices, membership contracts, and welcome documentation."
+                on={data?.emailServiceStatus === 'ACTIVE' ? (
+                  <span className="gt-chip gt-chip-ok">Active Relay</span>
+                ) : (
+                  <span className="gt-chip gt-chip-muted">Super Admin Configured</span>
+                )}
+              />
+            </ul>
+          </section>
+
+          {/* Section 3: Triggers */}
+          <section>
+            <SectionHeader eyebrow="Triggers" title="When messages go out" />
+            <ul className="flex flex-col">
+              <TriggerRow
+                title="Membership expiry reminders"
+                desc="Reach out before members lapse — keep renewals predictable."
+                enabled={expiryEnabled}
+                onToggle={setExpiryEnabled}
+                footer={
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-ink-3">Send when</span>
+                    {[3, 5, 7, 10].map((d) => (
+                      <button
+                        key={d}
+                        onClick={() => setReminderDays(d)}
+                        className={cn(
+                          'h-6 px-2 rounded text-[11px] font-mono transition-colors',
+                          reminderDays === d
+                            ? 'bg-[var(--ink)] text-[var(--ink-inverse)]'
+                            : 'text-ink-3 hover:text-ink'
+                        )}
+                      >
+                        {d}d before
+                      </button>
+                    ))}
+                  </div>
+                }
+              />
+              <TriggerRow
+                title="Welcome message"
+                desc="Send a welcome message with the member's pass code right after enrollment."
+                enabled={welcomeEnabled}
+                onToggle={setWelcomeEnabled}
+              />
+              <TriggerRow
+                title="Payment receipt"
+                desc="Generate and dispatch an instant receipt the moment a payment is settled."
+                enabled={receiptEnabled}
+                onToggle={setReceiptEnabled}
+              />
+            </ul>
+          </section>
         </div>
 
-        {saved && (
-          <div className="p-3.5 rounded-lg border border-ok/30 bg-ok/10 text-ok text-xs font-semibold flex items-center gap-2">
-            <CheckCircle2 className="size-4" /> Preferences saved successfully!
+        {/* RIGHT — preview */}
+        <aside className="flex flex-col gap-6 min-w-0">
+          <div className="sticky top-6 flex flex-col gap-6">
+            <p className="text-eyebrow">Preview</p>
+            <p className="text-meta">How messages read on a member's phone.</p>
+            <PreviewChat
+              label="Receipt"
+              tone="ok"
+              body={`Hi Rahul, we received ₹1,500 via UPI at your gym. Receipt No: RCP-2026-0012. Thank you!`}
+            />
+            <PreviewChat
+              label="Renewal reminder"
+              tone="info"
+              body={`Hi Rahul, your membership is expiring on 30 Aug. Renew to keep your routine uninterrupted.`}
+            />
+            <PreviewChat
+              label="Welcome"
+              tone="muted"
+              body={`Hi Rahul! Welcome to your gym. Your Member Code is MEM-1042. See you on the floor.`}
+            />
           </div>
-        )}
-
-        {saveMutation.isError && (
-          <Alert variant="destructive">
-            <AlertDescription>
-              {(saveMutation.error as Error)?.message || 'Failed to save preferences. Please try again.'}
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {/* Primary Delivery Channel */}
-        <Card className="border-border shadow-xs">
-          <CardHeader className="pb-3 border-b border-border">
-            <CardTitle className="text-sm font-semibold">Primary Communication Channel</CardTitle>
-            <CardDescription className="text-xs">
-              Delivery mechanism for receipts, alerts, and notifications
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="p-4 rounded-lg border-2 border-primary bg-primary/5 flex flex-col gap-1 cursor-pointer">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 font-bold text-xs text-foreground">
-                    <MessageCircle className="size-4 text-[#25D366] fill-current" />
-                    WhatsApp
-                  </div>
-                  <span className="size-2 rounded-full bg-primary"></span>
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Direct Click-to-Chat URLs with pre-filled messaging
-                </p>
-                <span className="text-[10px] font-mono text-primary font-semibold mt-2">
-                  ACTIVE (Zero API cost)
-                </span>
-              </div>
-
-              <div className="p-4 rounded-lg border border-border bg-surface-2 opacity-60 flex flex-col gap-1 cursor-not-allowed">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 font-bold text-xs text-foreground">
-                    <Smartphone className="size-4 text-muted-foreground" />
-                    SMS Gateway
-                  </div>
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  DLT Template SMS Provider (Fast2SMS / Twilio)
-                </p>
-                <span className="text-[10px] font-mono text-muted-foreground mt-2">
-                  DISABLED IN MVP
-                </span>
-              </div>
-
-              <div className="p-4 rounded-lg border-2 border-primary bg-primary/5 flex flex-col gap-1 cursor-pointer">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 font-bold text-xs text-foreground">
-                    <Mail className="size-4 text-primary" />
-                    Automated Email
-                  </div>
-                  <span className="size-2 rounded-full bg-primary"></span>
-                </div>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Automated receipts, welcome letters &amp; password resets
-                </p>
-                <span className="text-[10px] font-mono text-primary font-semibold mt-2">
-                  ACTIVE (Free Automated Engine)
-                </span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Trigger Rules */}
-        <Card className="border-border shadow-xs">
-          <CardHeader className="pb-3 border-b border-border">
-            <CardTitle className="text-sm font-semibold">Automated Trigger Rules</CardTitle>
-            <CardDescription className="text-xs">
-              Toggle operational notifications for members
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-4 flex flex-col gap-4">
-            <div className="flex items-center justify-between py-2 border-b border-border">
-              <div className="flex flex-col gap-0.5">
-                <span className="text-xs font-semibold text-foreground">
-                  Membership Expiry Reminders
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  Generate WhatsApp links for members reaching term expiration
-                </span>
-                <div className="flex items-center gap-2 mt-1.5">
-                  <span className="text-[11px] font-mono text-muted-foreground">Trigger Window:</span>
-                  {[3, 5, 7, 10].map((days) => (
-                    <button
-                      key={days}
-                      type="button"
-                      onClick={() => setReminderDays(days)}
-                      className={`px-2 py-0.5 rounded text-[11px] font-mono font-semibold border ${
-                        reminderDays === days
-                          ? 'border-primary bg-primary/10 text-primary'
-                          : 'border-border text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {days} Days
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <Switch checked={expiryEnabled} onCheckedChange={setExpiryEnabled} />
-            </div>
-
-            <div className="flex items-center justify-between py-2 border-b border-border">
-              <div className="flex flex-col gap-0.5">
-                <span className="text-xs font-semibold text-foreground">
-                  Welcome WhatsApp Message
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  Send welcome link with assigned Member Code upon enrollment
-                </span>
-              </div>
-              <Switch checked={welcomeEnabled} onCheckedChange={setWelcomeEnabled} />
-            </div>
-
-            <div className="flex items-center justify-between py-2">
-              <div className="flex flex-col gap-0.5">
-                <span className="text-xs font-semibold text-foreground">
-                  Payment Receipt Sharing
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  Generate instant receipt links whenever fee payments are recorded
-                </span>
-              </div>
-              <Switch checked={receiptEnabled} onCheckedChange={setReceiptEnabled} />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Custom SMTP Configurable Block */}
-        <SmtpConfigBlock
-          smtp={smtp}
-          onChange={setSmtp}
-          userEmail={user?.email}
-          gymName={gym?.name}
-        />
-
-        {/* Message Template Previews */}
-        <Card className="border-border shadow-xs">
-          <CardHeader className="pb-3 border-b border-border">
-            <CardTitle className="text-sm font-semibold">WhatsApp Message Preview</CardTitle>
-            <CardDescription className="text-xs">
-              Pre-filled messages generated for your members
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-4 flex flex-col gap-3">
-            <div className="p-3 rounded-lg bg-surface-2 border border-border text-xs font-sans flex flex-col gap-1">
-              <span className="font-mono text-[10px] font-bold uppercase text-primary">Receipt Template</span>
-              <p className="text-foreground">
-                Hi Rahul Sharma, we have received ₹1,500 via UPI for your membership at {gym?.name || 'Iron House Fitness'}. Receipt No: RCP-2026-0012. Thank you! 🧾✨
-              </p>
-            </div>
-
-            <div className="p-3 rounded-lg bg-surface-2 border border-border text-xs font-sans flex flex-col gap-1">
-              <span className="font-mono text-[10px] font-bold uppercase text-primary">Expiry Reminder Template</span>
-              <p className="text-foreground">
-                Hi Rahul Sharma, your membership at {gym?.name || 'Iron House Fitness'} is expiring on 15/09/2026. Please renew to keep achieving your fitness goals without interruption! ⏳🔥
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="flex justify-end pt-2">
-          <Button
-            onClick={handleSave}
-            disabled={saveMutation.isPending}
-            className="bg-primary text-primary-foreground font-bold text-xs h-9 px-6"
-          >
-            {saveMutation.isPending ? 'Saving...' : 'Save Preferences'}
-          </Button>
-        </div>
+        </aside>
       </div>
     </AppShell>
   );
 };
+
+const SectionHeader: React.FC<{ eyebrow: string; title: string; subtitle?: string }> = ({ eyebrow, title, subtitle }) => (
+  <div className="mb-2">
+    <p className="text-eyebrow">{eyebrow}</p>
+    <h2 className="text-h2 text-ink mt-1.5">{title}</h2>
+    {subtitle && <p className="text-xs text-ink-3 mt-1 leading-relaxed">{subtitle}</p>}
+  </div>
+);
+
+const ChannelRow: React.FC<{
+  icon: React.ReactNode;
+  name: string;
+  desc: string;
+  on: React.ReactNode;
+  locked?: boolean;
+}> = ({ icon, name, desc, on, locked }) => (
+  <li className="grid grid-cols-[auto_1fr_auto] items-center gap-4 py-4 border-t border-[var(--line-2)] first:border-t-0">
+    <div className="h-8 w-8 rounded-md bg-[var(--surface-2)] text-ink-2 flex items-center justify-center shrink-0">
+      {icon}
+    </div>
+    <div>
+      <p className="text-sm text-ink font-medium">{name}</p>
+      <p className="text-[11px] text-ink-3 mt-0.5">{desc}</p>
+    </div>
+    <div className="flex items-center gap-2">
+      {on}
+      {locked && <span className="text-[10px] text-ink-3 font-mono">always on</span>}
+    </div>
+  </li>
+);
+
+const TriggerRow: React.FC<{
+  title: string;
+  desc: string;
+  enabled: boolean;
+  onToggle: (v: boolean) => void;
+  footer?: React.ReactNode;
+}> = ({ title, desc, enabled, onToggle, footer }) => (
+  <li className="py-4 border-t border-[var(--line-2)] first:border-t-0">
+    <div className="flex items-start justify-between gap-4">
+      <div className="min-w-0">
+        <p className="text-sm text-ink font-medium">{title}</p>
+        <p className="text-[11px] text-ink-3 mt-0.5">{desc}</p>
+        {footer && <div className="mt-3">{footer}</div>}
+      </div>
+      <Switch checked={enabled} onCheckedChange={onToggle} />
+    </div>
+  </li>
+);
+
+const PreviewChat: React.FC<{ label: string; tone: 'ok' | 'info' | 'muted'; body: string }> = ({ label, tone, body }) => (
+  <div className="rounded-md border border-[var(--line)] bg-[var(--surface)] p-3">
+    <p
+      className={cn(
+        'text-[10px] uppercase tracking-wider font-semibold mb-2',
+        tone === 'ok' && 'text-[var(--positive)]',
+        tone === 'info' && 'text-[var(--info)]',
+        tone === 'muted' && 'text-ink-3'
+      )}
+    >
+      {label}
+    </p>
+    <p className="text-[13px] text-ink leading-relaxed">{body}</p>
+  </div>
+);

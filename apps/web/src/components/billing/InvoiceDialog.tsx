@@ -8,11 +8,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { api } from '@/lib/api';
 
 interface InvoiceDialogProps {
-  paymentId: string | null;
+  paymentId: number | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -72,7 +71,7 @@ export const InvoiceDialog: React.FC<InvoiceDialogProps> = ({ paymentId, open, o
               </div>
             </div>
 
-            <Separator />
+            <div className="h-px bg-[var(--border)]/60" />
 
             {/* Billed to */}
             <div>

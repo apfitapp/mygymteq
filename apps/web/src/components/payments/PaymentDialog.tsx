@@ -35,9 +35,9 @@ export const PaymentDialog: React.FC<PaymentDialogProps> = ({
   members,
   onPaymentSuccess,
 }) => {
-  const [selectedMemberId, setSelectedMemberId] = useState('');
+  const [selectedMemberId, setSelectedMemberId] = useState<number | undefined>(undefined);
   const [amount, setAmount] = useState<number>(0);
-  const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI' | 'CARD' | 'NETBANKING'>('UPI');
+  const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI' | 'CARD' | 'BANK_TRANSFER' | 'OTHER'>('UPI');
   const [referenceId, setReferenceId] = useState('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -45,7 +45,7 @@ export const PaymentDialog: React.FC<PaymentDialogProps> = ({
   const [successInfo, setSuccessInfo] = useState<{ receiptNumber: string; whatsappUrl?: string } | null>(null);
 
   useEffect(() => {
-    if (members.length > 0 && !selectedMemberId) {
+    if (members.length > 0 && selectedMemberId === undefined) {
       setSelectedMemberId(members[0].id);
     }
   }, [members, selectedMemberId]);
@@ -67,8 +67,8 @@ export const PaymentDialog: React.FC<PaymentDialogProps> = ({
 
     try {
       const res = await api.recordPayment({
-        memberId: selectedMemberId,
-        amount: Number(amount),
+        memberId: selectedMemberId!,
+        amountPaise: Math.round(Number(amount) * 100),
         paymentMode,
         referenceId: referenceId || undefined,
         notes: notes || undefined,
@@ -129,15 +129,15 @@ export const PaymentDialog: React.FC<PaymentDialogProps> = ({
           <form onSubmit={handleRecordSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="memberSelect" className="text-xs font-semibold">Select Member *</Label>
-              <Select value={selectedMemberId} onValueChange={(val) => setSelectedMemberId(val)}>
+              <Select value={selectedMemberId?.toString() ?? ''} onValueChange={(val) => setSelectedMemberId(parseInt(val, 10))}>
                 <SelectTrigger id="memberSelect" className="text-xs">
                   <SelectValue placeholder="Select member" />
                 </SelectTrigger>
                 <SelectContent>
                   {members.map((m: any) => (
-                    <SelectItem key={m.id} value={m.id}>
+                    <SelectItem key={m.id} value={m.id.toString()}>
                       {m.first_name} {m.last_name || ''} ({m.member_code})
-                      {m.membership_due_amount > 0 ? ` — Due: ${formatCurrency(m.membership_due_amount)}` : ''}
+                      {m.membership_due_amount_paise > 0 ? ` — Due: ${formatCurrency(m.membership_due_amount_paise)}` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -169,7 +169,7 @@ export const PaymentDialog: React.FC<PaymentDialogProps> = ({
                     <SelectItem value="UPI">UPI / QR Code</SelectItem>
                     <SelectItem value="CASH">Cash</SelectItem>
                     <SelectItem value="CARD">Debit / Credit Card</SelectItem>
-                    <SelectItem value="NETBANKING">Net Banking</SelectItem>
+                    <SelectItem value="BANK_TRANSFER">Net Banking</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

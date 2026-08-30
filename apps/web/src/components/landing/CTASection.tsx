@@ -1,56 +1,52 @@
-import React from 'react';
-import { ArrowRight, Check, Sparkles } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
+import { ArrowRight, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export const CTASection: React.FC = () => {
+  const location = useLocation();
+  const isDemo = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get('intent') === 'demo';
+  }, [location.search]);
+
   return (
-    <section className="py-20 sm:py-24 relative overflow-hidden">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-        <div className="rounded-3xl border border-border bg-gradient-to-b from-card via-card to-secondary/30 p-8 sm:p-14 text-center relative shadow-2xl overflow-hidden">
-          {/* Ambient Glow */}
-          <div className="absolute -top-24 left-1/2 -translate-x-1/2 size-96 bg-primary/15 rounded-full blur-3xl -z-10" />
-
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-mono font-bold tracking-wider uppercase mb-6">
-            <Sparkles className="size-3" />
-            <span>START MODERNIZING TODAY</span>
-          </div>
-
-          <h2 className="font-display text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground max-w-2xl mx-auto leading-tight mb-4">
-            Everything you need to run an exceptional gym
-          </h2>
-
-          <p className="text-muted-foreground text-sm sm:text-base max-w-xl mx-auto mb-8 leading-relaxed">
-            Join modern fitness facilities running fast check-ins, automated GST billing, and zero revenue leakage.
-          </p>
-
-          <div className="flex flex-wrap items-center justify-center gap-3.5 mb-8">
-            <Button asChild size="lg" className="rounded-lg bg-primary text-primary-foreground font-semibold text-sm h-11 px-7 shadow-md hover:bg-primary/90 gap-2">
-              <a href="#/login">
-                <span>Sign In to Console</span>
-                <ArrowRight className="size-4" />
-              </a>
-            </Button>
-            <Button asChild variant="outline" size="lg" className="rounded-lg text-sm h-11 px-6 border-border hover:bg-secondary/60">
-              <a href="#pricing">
-                <span>View Pricing Plans</span>
-              </a>
-            </Button>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-muted-foreground font-mono">
-            <span className="inline-flex items-center gap-1.5">
-              <Check className="size-3.5 text-primary" /> Free 1-on-1 migration
-            </span>
-            <span className="text-border hidden sm:inline">&bull;</span>
-            <span className="inline-flex items-center gap-1.5">
-              <Check className="size-3.5 text-primary" /> No long-term lock-in
-            </span>
-            <span className="text-border hidden sm:inline">&bull;</span>
-            <span className="inline-flex items-center gap-1.5">
-              <Check className="size-3.5 text-primary" /> WhatsApp dispatch included
-            </span>
-          </div>
+    <section className="py-24 sm:py-32 px-4 sm:px-6 lg:px-8 bg-[var(--bg)] border-t border-[var(--line)]">
+      <div className="max-w-3xl mx-auto text-center">
+        <p className="gt-kicker">{isDemo ? 'See it on your data' : 'Ready when you are'}</p>
+        <h2 className="text-display-serif-sm sm:text-display-serif text-ink mt-4">
+          {isDemo
+            ? 'See GymTech run in your gym in 20 minutes.'
+            : 'Start your 14-day free trial.'}
+        </h2>
+        <p className="text-body text-ink-2 mt-5 max-w-xl mx-auto">
+          {isDemo
+            ? 'A 20-minute walkthrough with our team on your own member data. No slides, no sales pitch.'
+            : 'No credit card. Set up your gym, import members, and run live check-ins by tomorrow morning.'}
+        </p>
+        <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Button
+            asChild
+            size="lg"
+            className="bg-[var(--ink)] text-[var(--ink-inverse)] hover:bg-[var(--ink-2)] border-[var(--ink)] font-medium h-11 px-6 gap-2 rounded-lg"
+          >
+            <a href={isDemo ? '#/contact?intent=demo' : '#/login'}>
+              {isDemo ? <Calendar className="size-4" /> : <ArrowRight className="size-4" />}
+              {isDemo ? 'Book a walkthrough' : 'Start free trial'}
+            </a>
+          </Button>
+          <Button
+            asChild
+            variant="outline"
+            size="lg"
+            className="h-11 px-6 font-medium text-sm border-[var(--line)] hover:bg-[var(--surface-2)] rounded-lg"
+          >
+            <a href="#pricing">Compare plans</a>
+          </Button>
         </div>
+        <p className="mt-6 text-[11px] text-ink-3 font-mono">
+          No credit card · Free migration · Cancel anytime
+        </p>
       </div>
     </section>
   );

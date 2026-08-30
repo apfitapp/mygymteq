@@ -1,113 +1,92 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Check, ChevronRight } from 'lucide-react';
+import { ArrowRight, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { HeroProductDemo } from '@/components/landing/HeroProductDemo';
 
+const fadeUp = (delay = 0) => ({
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.4, delay, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] },
+});
+
 export const HeroSection: React.FC = () => {
   return (
-    <section className="relative pt-4 pb-16 sm:pt-8 sm:pb-24 overflow-hidden hero-mesh">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
-
-        {/* Release Pill Badge */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="inline-flex items-center"
-        >
-          <a
-            href="#product"
-            className="group inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-border bg-card/80 backdrop-blur-md text-[11px] font-mono text-muted-foreground hover:text-foreground hover:border-primary/40 transition-all shadow-xs mb-5 sm:mb-6"
-          >
-            <span className="flex size-2 rounded-full bg-primary animate-pulse" />
-            <span>The Modern Gym Operating System</span>
-            <ChevronRight className="size-3 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
-          </a>
+    <section className="relative pt-12 sm:pt-16 pb-20 sm:pb-28 bg-[var(--bg)]">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+        {/* Kicker */}
+        <motion.div {...fadeUp(0)} className="flex items-center justify-center mb-6">
+          <span className="gt-kicker">
+            <span className="size-1.5 rounded-full bg-[var(--iron)]" />
+            Built for gyms across India
+          </span>
         </motion.div>
 
-        {/* Crisp Headline */}
+        {/* Headline — Inter for body, Fraunces for the italic emphasis. */}
         <motion.h1
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="font-display text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight leading-[1.08] text-foreground mb-6"
+          {...fadeUp(0.05)}
+          className="font-display text-center text-[40px] sm:text-6xl lg:text-7xl font-semibold tracking-[-0.025em] leading-[1.05] text-ink max-w-4xl mx-auto"
         >
-          Run your fitness business with <br className="hidden sm:block" />
-          <span className="text-gradient">modern SaaS precision</span>
+          The gym management software that <span className="text-italic-accent">actually</span> gets used.
         </motion.h1>
 
-        {/* Subtitle */}
+        {/* Subhead — product truth, not marketing-speak. */}
         <motion.p
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed mb-8 sm:mb-10 font-normal"
+          {...fadeUp(0.1)}
+          className="text-center text-base sm:text-lg text-ink-2 max-w-2xl mx-auto leading-relaxed mt-6"
         >
-          Manage members, track daily attendance with QR codes, generate automated GST bills, and send instant WhatsApp receipts — all in one simple software.
+          Members, payments, attendance, GST invoices, and PT commissions — in one place your staff will actually open every morning.
         </motion.p>
 
-        {/* Action Buttons */}
+        {/* CTAs */}
         <motion.div
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="flex flex-wrap items-center justify-center gap-3.5 w-full mb-10"
+          {...fadeUp(0.15)}
+          className="flex flex-wrap items-center justify-center gap-3 mt-8"
         >
           <Button
             asChild
             size="lg"
-            className="rounded-lg bg-primary text-primary-foreground font-semibold text-sm h-11 px-6 shadow-md hover:bg-primary/90 gap-2 transition-all"
+            className="bg-[var(--ink)] text-[var(--ink-inverse)] hover:bg-[var(--ink-2)] border-[var(--ink)] font-medium h-11 px-6 gap-2 rounded-lg"
           >
             <a href="#/login">
-              <span>Sign In to Console</span>
-              <ArrowRight className="size-4" />
+              Start free trial
+              <ArrowRight className="h-4 w-4" />
             </a>
           </Button>
-
           <Button
             asChild
             variant="outline"
             size="lg"
-            className="rounded-lg text-sm h-11 px-6 border-border hover:bg-secondary/60 gap-2"
+            className="h-11 px-6 font-medium text-sm border-[var(--line)] hover:bg-[var(--surface-2)] rounded-lg"
           >
-            <a href="#product">
-              <span>See How It Works</span>
-            </a>
+            <a href="#product">See the product</a>
           </Button>
         </motion.div>
 
-        {/* Trust Badges Strip */}
+        {/* One-line trust strip — three real, concrete promises. */}
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, delay: 0.4 }}
-          className="flex flex-wrap items-center justify-center gap-y-2 gap-x-6 text-xs text-muted-foreground font-mono mb-14"
+          {...fadeUp(0.2)}
+          className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mt-8 text-[12px] text-ink-3"
         >
-          <span className="inline-flex items-center gap-1.5">
-            <Check className="size-3.5 text-primary" /> Free Excel Member Import
-          </span>
-          <span className="text-border hidden sm:inline">&bull;</span>
-          <span className="inline-flex items-center gap-1.5">
-            <Check className="size-3.5 text-primary" /> Instant QR Code Attendance
-          </span>
-          <span className="text-border hidden sm:inline">&bull;</span>
-          <span className="inline-flex items-center gap-1.5">
-            <Check className="size-3.5 text-primary" /> 1-Click WhatsApp Invoices
-          </span>
+          {[
+            'No credit card',
+            'Free Excel member import',
+            'Set up in under 30 minutes',
+          ].map((p, i) => (
+            <span key={i} className="inline-flex items-center gap-1.5">
+              <Check className="h-3.5 w-3.5 text-[var(--positive)]" />
+              <span>{p}</span>
+            </span>
+          ))}
         </motion.div>
 
-        {/* Live Auto-Playing Interactive Product Experience */}
+        {/* Product demo — single, focused, no fake mesh glow. */}
         <motion.div
-          initial={{ opacity: 0, y: 25 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.45 }}
-          className="max-w-4xl mx-auto relative text-left"
+          {...fadeUp(0.3)}
+          className="mt-16 sm:mt-20 max-w-5xl mx-auto"
         >
-          <div className="absolute -inset-4 bg-gradient-to-r from-primary/15 via-emerald-500/10 to-teal-500/15 rounded-3xl blur-2xl -z-10 opacity-70" />
           <HeroProductDemo />
         </motion.div>
-
       </div>
     </section>
   );

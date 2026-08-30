@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CheckCircle2, MessageCircle, RefreshCw, AlertCircle } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, MessageCircle, AlertCircle } from 'lucide-react';
 import { AppShell } from '@/components/layout/AppShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +24,7 @@ export const RenewMemberPage: React.FC = () => {
 
   const { data: memberData } = useQuery({
     queryKey: ['member', id],
-    queryFn: () => api.getMemberDetail(id!),
+    queryFn: () => api.getMemberDetail(parseInt(id!, 10)),
     enabled: !!id,
   });
 
@@ -36,11 +36,11 @@ export const RenewMemberPage: React.FC = () => {
   const member = memberData?.member;
   const plans = plansData?.plans || [];
 
-  const [planId, setPlanId] = useState('');
+  const [planId, setPlanId] = useState<number | undefined>(undefined);
   const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
   const [discountAmount, setDiscountAmount] = useState<number>(0);
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
-  const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI' | 'CARD' | 'NETBANKING'>('UPI');
+  const [paymentMode, setPaymentMode] = useState<'CASH' | 'UPI' | 'CARD' | 'BANK_TRANSFER' | 'OTHER'>('UPI');
   const [referenceId, setReferenceId] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -49,17 +49,18 @@ export const RenewMemberPage: React.FC = () => {
   const [result, setResult] = useState<RenewMembershipResponse | null>(null);
 
   React.useEffect(() => {
-    if (plans.length > 0 && !planId) {
+    if (plans.length > 0 && planId === undefined) {
       setPlanId(plans[0].id);
-      setPaymentAmount(plans[0].price / 100);
+      setPaymentAmount(plans[0].price_paise / 100);
     }
   }, [plans, planId]);
 
   const handlePlanChange = (selectedId: string) => {
-    setPlanId(selectedId);
-    const selected = plans.find((p) => p.id === selectedId);
+    const numericId = parseInt(selectedId, 10);
+    setPlanId(numericId);
+    const selected = plans.find((p) => p.id === numericId);
     if (selected) {
-      setPaymentAmount(selected.price / 100);
+      setPaymentAmount(selected.price_paise / 100);
     }
   };
 
@@ -69,11 +70,11 @@ export const RenewMemberPage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      const res = await api.renewMembership(id!, {
-        planId,
+      const res = await api.renewMembership(parseInt(id!, 10), {
+        planId: planId!,
         startDate: startDate || undefined,
-        discountAmount: Number(discountAmount) || 0,
-        paymentAmount: Number(paymentAmount) || 0,
+        discountPaise: Math.round((Number(discountAmount) || 0) * 100),
+        paymentPaise: Math.round((Number(paymentAmount) || 0) * 100),
         paymentMode,
         referenceId: referenceId || undefined,
         notes: notes || undefined,
@@ -160,14 +161,14 @@ export const RenewMemberPage: React.FC = () => {
               <CardContent className="pt-4 flex flex-col gap-4">
                 <div className="flex flex-col gap-1.5">
                   <Label htmlFor="planId" className="text-xs font-semibold">Select Plan *</Label>
-                  <Select value={planId} onValueChange={handlePlanChange}>
+                  <Select value={planId?.toString() ?? ''} onValueChange={handlePlanChange}>
                     <SelectTrigger id="planId" className="text-xs">
                       <SelectValue placeholder="Choose renewal package" />
                     </SelectTrigger>
                     <SelectContent>
                       {plans.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.name} ({p.duration_months} mo) — ₹{(p.price / 100).toLocaleString('en-IN')}
+                        <SelectItem key={p.id} value={p.id.toString()}>
+                          {p.name} ({p.duration_months} mo) — ₹{(p.price_paise / 100).toLocaleString('en-IN')}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -224,7 +225,7 @@ export const RenewMemberPage: React.FC = () => {
                         <SelectItem value="UPI">UPI / QR Code</SelectItem>
                         <SelectItem value="CASH">Cash</SelectItem>
                         <SelectItem value="CARD">Debit / Credit Card</SelectItem>
-                        <SelectItem value="NETBANKING">Net Banking</SelectItem>
+                        <SelectItem value="BANK_TRANSFER">Net Banking</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

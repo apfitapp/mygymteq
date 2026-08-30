@@ -4,29 +4,20 @@ import { useQuery } from '@tanstack/react-query';
 import {
   Dumbbell,
   LogOut,
-  Calendar,
-  Clock,
-  CreditCard,
-  CheckCircle2,
   AlertCircle,
   QrCode,
   ShieldCheck,
-  User,
   Phone,
-  MapPin,
-  RefreshCw,
   Receipt,
-  Download,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { GymStatusBadge } from '@/components/ui/GymStatusBadge';
+import { StatusBadge } from '@/components/shared/StatusBadge';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 import { MemberQrCode } from '@/components/ui/MemberQrCode';
 import { Logo } from '@/components/shared/Logo';
@@ -167,7 +158,7 @@ export const MemberPortalPage: React.FC = () => {
                     {gym?.name || 'GYM PASS'}
                   </span>
                 </div>
-                <GymStatusBadge status={isExpired ? 'EXPIRED' : member.status} />
+                <StatusBadge status={isExpired ? 'EXPIRED' : member.status} />
               </div>
 
               {/* Card Body / Member Info */}
@@ -222,11 +213,11 @@ export const MemberPortalPage: React.FC = () => {
 
               <Card className="p-3 border-border bg-card shadow-xs">
                 <span className="text-[10px] font-mono uppercase text-muted-foreground">Outstanding Dues</span>
-                <p className={`font-display text-xl font-bold mt-0.5 ${activeMembership?.due_amount > 0 ? 'text-destructive' : 'text-foreground'}`}>
-                  {formatCurrency(activeMembership?.due_amount || 0)}
+                <p className={`font-display text-xl font-bold mt-0.5 ${activeMembership?.due_amount_paise > 0 ? 'text-destructive' : 'text-foreground'}`}>
+                  {formatCurrency(activeMembership?.due_amount_paise || 0)}
                 </p>
                 <span className="text-[10px] text-muted-foreground font-mono">
-                  {activeMembership?.due_amount > 0 ? 'Payment pending' : 'Zero balance'}
+                  {activeMembership?.due_amount_paise > 0 ? 'Payment pending' : 'Zero balance'}
                 </span>
               </Card>
             </div>
@@ -339,7 +330,7 @@ export const MemberPortalPage: React.FC = () => {
                         </TableCell>
                         <TableCell className="text-xs font-mono">{p.payment_mode}</TableCell>
                         <TableCell className="text-right text-xs font-mono font-bold text-foreground">
-                          {formatCurrency(p.amount)}
+                          {formatCurrency(p.amount_paise)}
                         </TableCell>
                         <TableCell className="text-right">
                           <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-mono font-semibold bg-ok/10 text-ok">
